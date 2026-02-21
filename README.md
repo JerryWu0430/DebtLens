@@ -1,5 +1,12 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment variables
+
+Create a `.env` file in the project root with:
+
+- **`GEMINI_API_KEY`** – Required for AI analysis. Get one at [Google AI Studio](https://aistudio.google.com/apikey).
+- **`GITHUB_TOKEN`** – Optional but recommended. A [GitHub Personal Access Token](https://github.com/settings/tokens) (classic) with no scopes is enough for public repos and gives 5,000 API requests/hour instead of 60 unauthenticated. For private repos, enable the `repo` scope.
+
 ## Getting Started
 
 First, run the development server:
