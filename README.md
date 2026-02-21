@@ -10,7 +10,11 @@ Transform fuzzy pain points into concrete blockers, visualize dependency graphs,
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite)
 
 ---
-
+### Sponsors
+1. Utilized Gemini as API
+2. Utilized CodeWords to Ideate
+3. Utilized Dust to discuss API best prompting practices using various agents
+---
 ## Features
 
 ### Analysis Engine
@@ -358,6 +362,7 @@ Key prompts are in `src/lib/gemini.ts`:
 
 ---
 
+
 ## Development
 
 ### Scripts
@@ -377,47 +382,8 @@ This project uses [shadcn/ui](https://ui.shadcn.com/). To add components:
 npx shadcn-ui@latest add [component-name]
 ```
 
----
-
-## Deployment
-
-### Vercel (Recommended)
-
-1. Push to GitHub
-2. Import project in [Vercel](https://vercel.com)
-3. Set environment variables
-4. Deploy
-
-### Self-Hosted
-
-```bash
-npm run build
-npm run start
-```
-
-Ensure `debtlens.db` is persisted between deployments.
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
 ---
-
-## Acknowledgments
-
-- [Google Gemini](https://ai.google.dev/) for AI capabilities
-- [ReactFlow](https://reactflow.dev/) for graph visualization
-- [shadcn/ui](https://ui.shadcn.com/) for beautiful components
-- [Drizzle ORM](https://orm.drizzle.team/) for type-safe database access
