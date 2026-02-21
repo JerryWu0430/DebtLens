@@ -3,17 +3,34 @@ import { Badge } from "@/components/ui/badge";
 import { Action } from "@/types/analysis";
 import { Zap, Clock, TrendingUp } from "lucide-react";
 
-const effortConfig = {
+const effortConfig: Record<string, { label: string; color: string }> = {
   small: { label: "Quick Win", color: "bg-green-100 text-green-800" },
   medium: { label: "Medium", color: "bg-yellow-100 text-yellow-800" },
   large: { label: "Large", color: "bg-red-100 text-red-800" },
 };
 
-const impactConfig = {
+const impactConfig: Record<string, { label: string; color: string }> = {
   low: { label: "Low Impact", color: "text-muted-foreground" },
   medium: { label: "Med Impact", color: "text-yellow-600" },
   high: { label: "High Impact", color: "text-green-600" },
 };
+
+const DEFAULT_EFFORT = { label: "—", color: "bg-muted text-muted-foreground" };
+const DEFAULT_IMPACT = { label: "—", color: "text-muted-foreground" };
+
+function getEffort(effort: unknown) {
+  if (effort != null && typeof effort === "string" && effortConfig[effort]) {
+    return effortConfig[effort];
+  }
+  return DEFAULT_EFFORT;
+}
+
+function getImpact(impact: unknown) {
+  if (impact != null && typeof impact === "string" && impactConfig[impact]) {
+    return impactConfig[impact];
+  }
+  return DEFAULT_IMPACT;
+}
 
 interface ActionItemProps {
   action: Action;
@@ -21,8 +38,8 @@ interface ActionItemProps {
 }
 
 function ActionItem({ action, index }: ActionItemProps) {
-  const effort = effortConfig[action.effort];
-  const impact = impactConfig[action.impact];
+  const effort = getEffort(action.effort);
+  const impact = getImpact(action.impact);
 
   return (
     <Card>
@@ -47,7 +64,7 @@ function ActionItem({ action, index }: ActionItemProps) {
             <TrendingUp className="mr-1 h-3 w-3" />
             {impact.label}
           </span>
-          {action.effort === "small" && action.impact === "high" && (
+          {String(action.effort) === "small" && String(action.impact) === "high" && (
             <Badge className="bg-purple-500 text-white hover:bg-purple-500/80">
               <Zap className="mr-1 h-3 w-3" />
               Quick Win

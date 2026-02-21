@@ -1,17 +1,42 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
   const [repoUrl, setRepoUrl] = useState("");
   const [painPoints, setPainPoints] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleAnalyze = () => {
-    // TODO: implement analysis
-    console.log({ repoUrl, painPoints });
+  const handleAnalyze = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repoUrl: repoUrl.trim(),
+          painPoint: painPoints.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Analysis failed");
+        return;
+      }
+      router.push(`/analysis/${data.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isValid = repoUrl.trim().length > 0;
@@ -56,13 +81,25 @@ export default function Home() {
             />
           </div>
 
+          {error && (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
           <Button
             className="w-full"
             size="lg"
             onClick={handleAnalyze}
-            disabled={!isValid}
+            disabled={!isValid || loading}
           >
-            Analyze Repository
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Analyzing…
+              </>
+            ) : (
+              "Analyze Repository"
+            )}
           </Button>
         </div>
       </main>
