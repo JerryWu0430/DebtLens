@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { analyses, repoCache } from "@/db/schema";
 import { getFileTree, getFileContent, getPackageJson } from "@/lib/github";
 import { createGeminiClient } from "@/lib/gemini";
+import { generateMermaidCode } from "@/lib/diagram";
 import {
   ValidationError,
   GitHubError,
@@ -179,7 +180,13 @@ export async function POST(req: NextRequest) {
       throw new AIError(`Analysis failed: ${msg}`);
     }
 
-    // 6. Store analysis result
+    // 6. Generate mermaid diagram from dependencies
+    const mermaidCode = generateMermaidCode(
+      result.dependencies || [],
+      result.blockers || []
+    );
+
+    // 7. Store analysis result
     const [inserted] = await db
       .insert(analyses)
       .values({
@@ -187,6 +194,7 @@ export async function POST(req: NextRequest) {
         painPoint,
         analysisType,
         result: result as unknown as Record<string, unknown>,
+        mermaidCode: mermaidCode || null,
       })
       .returning();
 

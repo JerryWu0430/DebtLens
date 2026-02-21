@@ -1,6 +1,10 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
+import { FileHoverPreview } from "@/components/file-hover-preview";
 import { Blocker, Severity } from "@/types/analysis";
-import { AlertTriangle, AlertCircle, Info, AlertOctagon } from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, AlertOctagon, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const severityConfig: Record<
   Severity,
@@ -30,32 +34,72 @@ const severityConfig: Record<
 
 interface BlockerCardProps {
   blocker: Blocker;
+  repoUrl?: string;
+  isSelected?: boolean;
+  onSelect?: (blocker: Blocker) => void;
 }
 
-export function BlockerCard({ blocker }: BlockerCardProps) {
+export function BlockerCard({ blocker, repoUrl, isSelected, onSelect }: BlockerCardProps) {
   const config = severityConfig[blocker.severity];
   const Icon = config.icon;
+  const isClickable = !!onSelect;
+
+  const iconColor = config.color.includes("red")
+    ? "text-red-400"
+    : config.color.includes("orange")
+      ? "text-orange-400"
+      : config.color.includes("yellow")
+        ? "text-yellow-400"
+        : "text-blue-400";
 
   return (
-    <div className="flex items-start gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+    <div
+      className={cn(
+        "flex items-start gap-4 p-4 rounded-lg border transition-all",
+        isClickable && "cursor-pointer hover:bg-muted/50",
+        isSelected
+          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+          : "border-border"
+      )}
+      onClick={() => onSelect?.(blocker)}
+    >
       <div className="flex-shrink-0 mt-0.5">
-        <Icon className={`h-5 w-5 ${config.color.includes("red") ? "text-red-400" : config.color.includes("orange") ? "text-orange-400" : config.color.includes("yellow") ? "text-yellow-400" : "text-blue-400"}`} />
+        <Icon className={cn("h-5 w-5", iconColor)} />
       </div>
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-start justify-between gap-2">
           <span className="font-medium text-sm">{blocker.title}</span>
-          <Badge variant="outline" className={`${config.color} text-xs flex-shrink-0`}>
-            {config.label}
-          </Badge>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Badge variant="outline" className={cn(config.color, "text-xs")}>
+              {config.label}
+            </Badge>
+            {isClickable && (
+              <ChevronRight className={cn(
+                "h-4 w-4 transition-transform",
+                isSelected ? "text-primary rotate-90" : "text-muted-foreground"
+              )} />
+            )}
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">{blocker.description}</p>
         <div className="flex flex-wrap gap-2 text-xs pt-1">
-          <Badge variant="secondary" className="text-xs">{blocker.category}</Badge>
+          <Badge variant="secondary" className="text-xs">
+            {blocker.category}
+          </Badge>
           {blocker.file && (
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-muted-foreground">
-              {blocker.file}
-              {blocker.line && `:${blocker.line}`}
-            </code>
+            repoUrl ? (
+              <FileHoverPreview file={blocker.file} line={blocker.line} repoUrl={repoUrl}>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-muted-foreground hover:bg-muted/80 hover:text-foreground cursor-pointer transition-colors">
+                  {blocker.file}
+                  {blocker.line && `:${blocker.line}`}
+                </code>
+              </FileHoverPreview>
+            ) : (
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-muted-foreground">
+                {blocker.file}
+                {blocker.line && `:${blocker.line}`}
+              </code>
+            )
           )}
         </div>
       </div>
@@ -65,9 +109,17 @@ export function BlockerCard({ blocker }: BlockerCardProps) {
 
 interface BlockerListProps {
   blockers: Blocker[];
+  repoUrl?: string;
+  selectedBlocker?: Blocker | null;
+  onSelectBlocker?: (blocker: Blocker) => void;
 }
 
-export function BlockerList({ blockers }: BlockerListProps) {
+export function BlockerList({
+  blockers,
+  repoUrl,
+  selectedBlocker,
+  onSelectBlocker,
+}: BlockerListProps) {
   const sortedBlockers = [...blockers].sort((a, b) => {
     const order: Record<Severity, number> = {
       critical: 0,
@@ -81,7 +133,13 @@ export function BlockerList({ blockers }: BlockerListProps) {
   return (
     <div className="space-y-2">
       {sortedBlockers.map((blocker) => (
-        <BlockerCard key={blocker.id} blocker={blocker} />
+        <BlockerCard
+          key={blocker.id}
+          blocker={blocker}
+          repoUrl={repoUrl}
+          isSelected={selectedBlocker?.id === blocker.id}
+          onSelect={onSelectBlocker}
+        />
       ))}
     </div>
   );

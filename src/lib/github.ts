@@ -42,7 +42,7 @@ async function githubFetch<T>(path: string, opts?: FetchOptions): Promise<T> {
     res = await fetch(`${GITHUB_API}${path}`, {
       headers: getHeaders(opts?.token),
     });
-  } catch (err) {
+  } catch {
     throw new GitHubError(
       "NETWORK_ERROR",
       "Failed to connect to GitHub API",

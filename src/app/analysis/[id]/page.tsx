@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { BlockerList } from "@/components/blocker-card";
 import { ActionList } from "@/components/action-list";
 import { DependencyDiagram } from "@/components/dependency-diagram";
+import { FocusedDiagram } from "@/components/focused-diagram";
 import { AnalysisSkeleton } from "@/components/analysis-skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export default function AnalysisPage() {
   const [repoUrl, setRepoUrl] = useState<string>("");
   const [mermaidCode, setMermaidCode] = useState<string>("");
   const [error, setError] = useState<ApiError | null>(null);
+  const [selectedBlocker, setSelectedBlocker] = useState<Blocker | null>(null);
 
   const fetchAnalysis = async () => {
     setState("loading");
@@ -131,7 +133,7 @@ export default function AnalysisPage() {
 
   return (
     <div className="min-h-screen p-8">
-      <div className="mx-auto max-w-6xl space-y-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         <header className="space-y-4">
           <Button asChild variant="ghost" size="sm">
             <Link href="/">
@@ -161,7 +163,7 @@ export default function AnalysisPage() {
           </div>
         </header>
 
-        {mermaidCode && (
+        {mermaidCode && !selectedBlocker && (
           <section>
             <ErrorBoundary
               fallback={
@@ -182,48 +184,76 @@ export default function AnalysisPage() {
           </section>
         )}
 
-        <Tabs defaultValue="blockers" className="w-full">
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="blockers" className="gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Blockers
-              {blockers.length > 0 && (
-                <span className="ml-1 rounded-full bg-destructive/20 px-2 py-0.5 text-xs text-destructive">
-                  {blockers.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="actions" className="gap-2">
-              <Zap className="h-4 w-4" />
-              Actions
-              {actions.length > 0 && (
-                <span className="ml-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs">
-                  {actions.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex gap-6">
+          {/* Main content - Tabs */}
+          <div className={selectedBlocker ? "flex-1" : "w-full"}>
+            <Tabs defaultValue="blockers" className="w-full">
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="blockers" className="gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Blockers
+                  {blockers.length > 0 && (
+                    <span className="ml-1 rounded-full bg-destructive/20 px-2 py-0.5 text-xs text-destructive">
+                      {blockers.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="actions" className="gap-2">
+                  <Zap className="h-4 w-4" />
+                  Actions
+                  {actions.length > 0 && (
+                    <span className="ml-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs">
+                      {actions.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="blockers" className="mt-6">
-            {blockers.length > 0 ? (
-              <BlockerList blockers={blockers} />
-            ) : (
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                No blockers found
-              </p>
-            )}
-          </TabsContent>
+              <TabsContent value="blockers" className="mt-6">
+                {blockers.length > 0 ? (
+                  <BlockerList
+                    blockers={blockers}
+                    repoUrl={repoUrl}
+                    selectedBlocker={selectedBlocker}
+                    onSelectBlocker={(blocker) =>
+                      setSelectedBlocker(
+                        selectedBlocker?.id === blocker.id ? null : blocker
+                      )
+                    }
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    No blockers found
+                  </p>
+                )}
+              </TabsContent>
 
-          <TabsContent value="actions" className="mt-6">
-            {actions.length > 0 ? (
-              <ActionList actions={actions} />
-            ) : (
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                No actions yet
-              </p>
-            )}
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="actions" className="mt-6">
+                {actions.length > 0 ? (
+                  <ActionList actions={actions} />
+                ) : (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    No actions yet
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Focused diagram sidebar */}
+          {selectedBlocker && mermaidCode && (
+            <div className="w-[400px] shrink-0">
+              <div className="sticky top-4 h-[calc(100vh-8rem)]">
+                <FocusedDiagram
+                  blocker={selectedBlocker}
+                  mermaidCode={mermaidCode}
+                  repoUrl={repoUrl}
+                  onClose={() => setSelectedBlocker(null)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
