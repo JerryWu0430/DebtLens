@@ -19,7 +19,7 @@
 }
 
 .file-preview-code .line {
-  @apply block px-4 -mx-4 leading-5;
+  @apply block px-4 -mx-4 leading-none;
 }
 
 .file-preview-code .line::before {

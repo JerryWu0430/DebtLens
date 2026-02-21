@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { renderWithInlineCode } from "@/components/inline-code";
 import { Action } from "@/types/analysis";
 import { Zap, Clock, TrendingUp } from "lucide-react";
 
@@ -39,7 +40,7 @@ function ActionItem({ action, index }: ActionItemProps) {
             </Badge>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">{action.description}</p>
+        <p className="text-sm text-muted-foreground">{renderWithInlineCode(action.description)}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className={`${effort.color} text-xs`}>
             <Clock className="mr-1 h-3 w-3" />

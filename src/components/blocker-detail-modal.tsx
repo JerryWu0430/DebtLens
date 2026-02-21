@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Blocker, Severity } from "@/types/analysis";
 import { FixSuggestionView } from "@/components/fix-suggestion-view";
+import { renderWithInlineCode } from "@/components/inline-code";
 import { FixSuggestion } from "@/types/fix-suggestion";
 import {
   AlertTriangle,
@@ -122,7 +123,7 @@ export function BlockerDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl w-[90vw] h-[90vh] max-h-[90vh] flex flex-col p-0 gap-0 border border-border overflow-hidden">
+      <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] flex flex-col p-0 gap-0 border border-border overflow-hidden">
         {viewMode === "suggestion" && suggestion ? (
           <>
             <DialogHeader className="px-6 pr-10 py-4 border-b border-border shrink-0">
@@ -142,7 +143,7 @@ export function BlockerDetailModal({
                 </DialogTitle>
               </div>
             </DialogHeader>
-            <div className="flex-1 min-h-0 overflow-auto">
+            <div className="overflow-auto max-h-[calc(90vh-14rem)]">
               <div className="p-6 min-w-0">
                 <FixSuggestionView suggestion={suggestion} />
               </div>
@@ -183,8 +184,8 @@ export function BlockerDetailModal({
               </div>
             </DialogHeader>
 
-            {/* Content */}
-            <div className="flex-1 min-h-0 overflow-auto">
+            {/* Content - sized to content; scrolls only when taller than viewport */}
+            <div className="overflow-auto max-h-[calc(90vh-14rem)]">
               <div className="p-6 space-y-6 min-w-0">
                 {/* Description */}
                 <section>
@@ -193,7 +194,7 @@ export function BlockerDetailModal({
                     Why This Is A Blocker
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    {blocker.description}
+                    {renderWithInlineCode(blocker.description)}
                   </p>
                 </section>
 

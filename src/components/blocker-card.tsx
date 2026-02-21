@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { FileHoverPreview } from "@/components/file-hover-preview";
+import { renderWithInlineCode } from "@/components/inline-code";
 import { Blocker, Severity } from "@/types/analysis";
 import { AlertTriangle, AlertCircle, Info, AlertOctagon, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -81,7 +82,7 @@ export function BlockerCard({ blocker, repoUrl, isSelected, onSelect }: BlockerC
             )}
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">{blocker.description}</p>
+        <p className="text-sm text-muted-foreground">{renderWithInlineCode(blocker.description)}</p>
         <div className="flex flex-wrap gap-2 text-xs pt-1">
           <Badge variant="secondary" className="text-xs">
             {blocker.category}

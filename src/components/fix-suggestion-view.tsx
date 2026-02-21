@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { codeToHtml } from "shiki";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { renderWithInlineCode } from "@/components/inline-code";
 import { FixSuggestion, CodeChange, PackageUpdate } from "@/types/fix-suggestion";
 import {
   FileCode,
@@ -83,7 +84,7 @@ function CodeDiff({ change }: { change: CodeChange }) {
       </CardHeader>
       <CardContent className="p-0 space-y-0 min-w-0">
         <p className="text-sm text-muted-foreground px-4 pb-3 break-words min-w-0">
-          {change.explanation}
+          {renderWithInlineCode(change.explanation)}
         </p>
 
         {/* Original */}
@@ -133,7 +134,7 @@ function PackageUpdateCard({ update }: { update: PackageUpdate }) {
             {update.suggestedVersion}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">{update.reason}</p>
+        <p className="text-xs text-muted-foreground mt-1">{renderWithInlineCode(update.reason)}</p>
       </div>
     </div>
   );
@@ -160,7 +161,7 @@ export function FixSuggestionView({ suggestion }: FixSuggestionViewProps) {
         <div className="p-4 rounded-lg bg-muted/50 border border-border min-w-0">
           <div className="flex items-start gap-2 min-w-0">
             <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-400 shrink-0" />
-            <p className="text-sm break-words min-w-0">{suggestion.summary}</p>
+            <p className="text-sm break-words min-w-0">{renderWithInlineCode(suggestion.summary)}</p>
           </div>
         </div>
       </section>
