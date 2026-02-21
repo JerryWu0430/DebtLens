@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { codeToHtml } from "shiki";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,7 @@ import {
   Check,
 } from "lucide-react";
 import { Blocker, Severity } from "@/types/analysis";
+import { renderWithInlineCode } from "@/components/inline-code";
 
 interface FilePreviewProps {
   file: string;
@@ -24,6 +27,7 @@ interface FilePreviewProps {
   blocker?: Blocker | null;
   onClose: () => void;
   onNavigate?: (file: string) => void;
+  onBlockerClick?: (blocker: Blocker) => void;
   dependencies?: string[];
   dependents?: string[];
 }
@@ -52,6 +56,11 @@ function getLanguageFromPath(path: string): string {
   return langMap[ext || ""] || "plaintext";
 }
 
+function isMarkdownFile(path: string): boolean {
+  const ext = path.split(".").pop()?.toLowerCase();
+  return ext === "md" || ext === "mdx";
+}
+
 function SeverityBadge({ severity }: { severity: Severity }) {
   const colors: Record<Severity, string> = {
     critical: "bg-red-500 hover:bg-red-600",
@@ -69,6 +78,7 @@ export function FilePreview({
   blocker,
   onClose,
   onNavigate,
+  onBlockerClick,
   dependencies = [],
   dependents = [],
 }: FilePreviewProps) {
@@ -170,8 +180,8 @@ export function FilePreview({
   const fileName = file.split("/").pop() || file;
 
   return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="shrink-0 border-b pb-3">
+    <Card className="flex h-full flex-col border-0 rounded-none shadow-none bg-[#0d1117]">
+      <CardHeader className="shrink-0 border-b border-border pb-3 bg-[#0d1117]">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
@@ -222,47 +232,26 @@ export function FilePreview({
         </div>
 
         {blocker && (
-          <div className="mt-3 space-y-2 rounded border bg-muted/50 p-3">
+          <div
+            className="mt-3 space-y-2 rounded border border-border bg-[#161b22] p-3 cursor-pointer hover:bg-[#1c2128] transition-colors"
+            onClick={() => {
+              onBlockerClick?.(blocker);
+              onClose();
+            }}
+          >
             <div className="flex items-center gap-2">
               <SeverityBadge severity={blocker.severity} />
               <span className="text-sm font-medium">{blocker.title}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {blocker.description}
+              {renderWithInlineCode(blocker.description)}
             </p>
           </div>
         )}
       </CardHeader>
 
-      <CardContent className="flex-1 overflow-hidden p-0">
-        {loading ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
-            <p className="text-sm text-muted-foreground">{error}</p>
-            <a
-              href={`${repoUrl}/blob/main/${file}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-primary hover:underline"
-            >
-              View on GitHub instead
-            </a>
-          </div>
-        ) : (
-          <div className="h-full overflow-auto">
-            <div
-              className="file-preview-code min-w-max text-sm"
-              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-            />
-          </div>
-        )}
-      </CardContent>
-
       {(dependencies.length > 0 || dependents.length > 0) && (
-        <div className="shrink-0 border-t p-3">
+        <div className="shrink-0 border-b border-border px-4 py-2 bg-[#161b22]">
           <div className="flex flex-wrap gap-4 text-xs">
             {dependencies.length > 0 && (
               <div className="flex items-center gap-2">
@@ -313,6 +302,49 @@ export function FilePreview({
           </div>
         </div>
       )}
+
+      <CardContent className="flex-1 overflow-hidden p-0">
+        {loading ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <a
+              href={`${repoUrl}/blob/main/${file}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline"
+            >
+              View on GitHub instead
+            </a>
+          </div>
+        ) : isMarkdownFile(file) ? (
+          <div className="h-full overflow-auto p-6">
+            <div className="prose prose-invert prose-sm max-w-none
+              prose-headings:text-foreground prose-headings:font-semibold
+              prose-p:text-muted-foreground prose-p:leading-relaxed
+              prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+              prose-code:text-foreground prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:before:content-none prose-code:after:content-none
+              prose-pre:bg-[#0d1117] prose-pre:border prose-pre:border-border prose-pre:rounded-lg
+              prose-strong:text-foreground
+              prose-ul:text-muted-foreground prose-ol:text-muted-foreground
+              prose-li:marker:text-muted-foreground">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content || ""}
+              </ReactMarkdown>
+            </div>
+          </div>
+        ) : (
+          <div className="h-full overflow-auto">
+            <div
+              className="file-preview-code min-w-max text-sm [&_pre]:bg-[#0d1117] [&_pre]:p-4 [&_pre]:m-0 [&_pre]:leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+            />
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 }

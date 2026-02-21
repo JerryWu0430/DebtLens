@@ -30,6 +30,7 @@ export async function GET(
     const result = analysis.result as {
       blockers?: unknown[];
       actions?: unknown[];
+      dependencyGraph?: unknown;
     } | null;
 
     const response: AnalysisResult = {
@@ -37,7 +38,7 @@ export async function GET(
       repoUrl: analysis.repoUrl,
       blockers: (result?.blockers ?? []) as AnalysisResult["blockers"],
       actions: (result?.actions ?? []) as AnalysisResult["actions"],
-      mermaidCode: analysis.mermaidCode ?? undefined,
+      dependencyGraph: result?.dependencyGraph as AnalysisResult["dependencyGraph"],
       createdAt: analysis.createdAt,
     };
 

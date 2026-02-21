@@ -1,9 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import type { DependencyGraph, Blocker as AnalysisBlocker } from "@/types/analysis";
+import type { FixSuggestion } from "@/types/fix-suggestion";
 
 const MAX_FILE_CHARS = 4000;
 const MAX_CONTEXT_TOKENS = 30000;
-const CHARS_PER_TOKEN = 4; // rough estimate
+const CHARS_PER_TOKEN = 4;
 const MAX_CONTEXT_CHARS = MAX_CONTEXT_TOKENS * CHARS_PER_TOKEN;
+const MAX_DEPTH = 3; // max import chain depth
 
 // Structured output types
 export type Blocker = {
@@ -31,6 +34,67 @@ export type AnalysisResult = {
   dependencies: Dependency[];
   actions: Action[];
   summary: string;
+  dependencyGraph?: DependencyGraph;
+};
+
+// Schema for dependency graph
+const dependencyGraphSchema = {
+  type: Type.OBJECT,
+  properties: {
+    files: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          path: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ["component", "hook", "util", "api", "type", "config", "test", "style", "unknown"] },
+          imports: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                from: { type: Type.STRING },
+                symbols: { type: Type.ARRAY, items: { type: Type.STRING } },
+                isDefault: { type: Type.BOOLEAN },
+                isDynamic: { type: Type.BOOLEAN },
+              },
+              required: ["from", "symbols", "isDefault", "isDynamic"],
+            },
+          },
+          exports: { type: Type.ARRAY, items: { type: Type.STRING } },
+          metrics: {
+            type: Type.OBJECT,
+            properties: {
+              lines: { type: Type.NUMBER },
+              complexity: { type: Type.NUMBER },
+            },
+            required: ["lines", "complexity"],
+          },
+          issues: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ["path", "type", "imports", "exports", "metrics", "issues"],
+      },
+    },
+    circularDeps: {
+      type: Type.ARRAY,
+      items: { type: Type.ARRAY, items: { type: Type.STRING } },
+    },
+    entryPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+    orphans: { type: Type.ARRAY, items: { type: Type.STRING } },
+    clusters: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          files: { type: Type.ARRAY, items: { type: Type.STRING } },
+          cohesion: { type: Type.NUMBER },
+        },
+        required: ["name", "files", "cohesion"],
+      },
+    },
+  },
+  required: ["files", "circularDeps", "entryPoints", "orphans", "clusters"],
 };
 
 // Schema for structured output
@@ -46,6 +110,20 @@ const analysisSchema = {
           line: { type: Type.NUMBER },
           description: { type: Type.STRING },
           severity: { type: Type.STRING, enum: ["low", "medium", "high", "critical"] },
+          codeSnippets: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                file: { type: Type.STRING },
+                startLine: { type: Type.NUMBER },
+                endLine: { type: Type.NUMBER },
+                code: { type: Type.STRING },
+                explanation: { type: Type.STRING },
+              },
+              required: ["file", "startLine", "endLine", "code", "explanation"],
+            },
+          },
         },
         required: ["file", "description", "severity"],
       },
@@ -78,6 +156,56 @@ const analysisSchema = {
     summary: { type: Type.STRING },
   },
   required: ["blockers", "dependencies", "actions", "summary"],
+};
+
+// Schema for fix suggestion
+const fixSuggestionSchema = {
+  type: Type.OBJECT,
+  properties: {
+    summary: { type: Type.STRING },
+    codeChanges: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          file: { type: Type.STRING },
+          startLine: { type: Type.NUMBER },
+          endLine: { type: Type.NUMBER },
+          originalCode: { type: Type.STRING },
+          suggestedCode: { type: Type.STRING },
+          explanation: { type: Type.STRING },
+        },
+        required: ["file", "startLine", "endLine", "originalCode", "suggestedCode", "explanation"],
+      },
+    },
+    packageUpdates: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          package: { type: Type.STRING },
+          currentVersion: { type: Type.STRING },
+          suggestedVersion: { type: Type.STRING },
+          reason: { type: Type.STRING },
+        },
+        required: ["package", "suggestedVersion", "reason"],
+      },
+    },
+    references: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          url: { type: Type.STRING },
+        },
+        required: ["title", "url"],
+      },
+    },
+    confidence: { type: Type.STRING, enum: ["low", "medium", "high"] },
+    effort: { type: Type.STRING, enum: ["small", "medium", "large"] },
+  },
+  required: ["summary", "codeChanges", "packageUpdates", "references", "confidence", "effort"],
 };
 
 export function truncateFile(content: string, maxChars = MAX_FILE_CHARS): string {
@@ -167,6 +295,13 @@ export function createGeminiClient(config?: GeminiConfig) {
 
 ${prompt}
 
+IMPORTANT: For CRITICAL and HIGH severity blockers, you MUST include 'codeSnippets' - an array of code evidence from the files showing WHY this is a blocker. Each snippet should:
+- Reference the exact file and line numbers
+- Include the problematic code (5-15 lines typically)
+- Explain why this specific code is problematic
+
+For medium/low severity blockers, codeSnippets is optional.
+
 Files:
 ${filesContent}`;
 
@@ -220,6 +355,90 @@ ${filesContent}`;
       if (!text) throw new Error("Empty response from Gemini");
 
       return JSON.parse(text) as T;
+    },
+
+    async analyzeDependencyGraph(
+      files: { path: string; content: string }[]
+    ): Promise<DependencyGraph> {
+      const truncatedFiles = truncateContext(files);
+      const filesContent = formatFilesForPrompt(truncatedFiles);
+
+      const prompt = `Analyze the dependency structure of this codebase. For each file:
+1. Identify its type (component, hook, util, api, type, config, test, style, unknown)
+2. Extract all imports (internal only, skip node_modules). Include:
+   - 'from': the source file path (resolve relative paths)
+   - 'symbols': array of imported names
+   - 'isDefault': true if default import
+   - 'isDynamic': true if dynamic import()
+3. List exported symbols
+4. Estimate metrics (lines, cyclomatic complexity 1-10)
+5. Note any issues (unused imports, circular refs, etc)
+
+Then identify:
+- circularDeps: arrays of file paths forming import cycles
+- entryPoints: files nothing imports (app entry, pages)
+- orphans: files with no imports AND nothing imports them
+- clusters: group files by feature/domain (auth, api, components, etc)
+
+Max import depth: ${MAX_DEPTH} levels.
+Only include internal project files, skip external packages.
+
+Files:
+${filesContent}`;
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: dependencyGraphSchema,
+        },
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response from Gemini");
+
+      return JSON.parse(text) as DependencyGraph;
+    },
+
+    async generateFixSuggestion(
+      blocker: AnalysisBlocker,
+      fileContent?: string
+    ): Promise<FixSuggestion> {
+      const prompt = `You are an expert code reviewer helping fix a blocker issue in a codebase.
+
+Blocker Details:
+- Title: ${blocker.title}
+- Description: ${blocker.description}
+- Severity: ${blocker.severity}
+- Category: ${blocker.category}
+${blocker.file ? `- File: ${blocker.file}${blocker.line ? `:${blocker.line}` : ""}` : ""}
+
+${fileContent ? `Current File Content:\n\`\`\`\n${truncateFile(fileContent)}\n\`\`\`` : ""}
+
+Generate a detailed fix suggestion that includes:
+1. A clear summary of how to fix this issue
+2. Specific code changes (if applicable) with original and suggested code
+3. Any package updates needed
+4. Links to relevant documentation
+5. Your confidence level in this fix (low/medium/high)
+6. Estimated effort to implement (small/medium/large)
+
+Be specific and actionable. If this is a conceptual issue without specific code to change, provide guidance in the summary and leave codeChanges empty.`;
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: fixSuggestionSchema,
+        },
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response from Gemini");
+
+      return JSON.parse(text) as FixSuggestion;
     },
   };
 }

@@ -15,7 +15,7 @@ export function StreamingIndicator({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 text-sm text-muted-foreground",
+        "flex items-center gap-2 text-sm text-muted-foreground font-mono",
         className
       )}
     >

@@ -1,5 +1,13 @@
 export type Severity = "critical" | "high" | "medium" | "low";
 
+export interface CodeSnippet {
+  file: string;
+  startLine: number;
+  endLine: number;
+  code: string;
+  explanation: string;
+}
+
 export interface Blocker {
   id: string;
   title: string;
@@ -8,6 +16,7 @@ export interface Blocker {
   file?: string;
   line?: number;
   category: string;
+  codeSnippets?: CodeSnippet[]; // For critical/high blockers - evidence from code
 }
 
 export interface Action {
@@ -20,12 +29,49 @@ export interface Action {
   blockerIds?: string[]; // related blockers
 }
 
+// File analysis for dependency graph
+export type FileType = "component" | "hook" | "util" | "api" | "type" | "config" | "test" | "style" | "unknown";
+
+export interface FileImport {
+  from: string; // source file path
+  symbols: string[]; // imported symbols
+  isDefault: boolean;
+  isDynamic: boolean;
+}
+
+export interface FileAnalysis {
+  path: string;
+  type: FileType;
+  imports: FileImport[];
+  exports: string[];
+  metrics: {
+    lines: number;
+    complexity: number; // cyclomatic complexity estimate
+  };
+  issues: string[]; // brief issue descriptions
+}
+
+export interface DependencyGraph {
+  files: FileAnalysis[];
+  circularDeps: string[][]; // arrays of file paths forming cycles
+  entryPoints: string[]; // files with no dependents
+  orphans: string[]; // files with no dependencies or dependents
+  clusters: FileCluster[];
+}
+
+export interface FileCluster {
+  name: string; // e.g., "auth", "api", "components"
+  files: string[];
+  cohesion: number; // 0-1, how tightly coupled
+}
+
 export interface AnalysisResult {
   id: number;
   repoUrl: string;
   blockers: Blocker[];
   actions: Action[];
   summary?: string;
-  mermaidCode?: string;
+  mermaidCode?: string; // deprecated, kept for compatibility
+  dependencyGraph?: DependencyGraph;
   createdAt: Date;
 }
