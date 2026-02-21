@@ -48,9 +48,9 @@ export function BlockerSidebar({
   const dismissedCount = dismissedIds.size;
 
   return (
-    <div className={cn("flex flex-col h-full border-r bg-background", className)}>
+    <div className={cn("flex flex-col h-full border-r border-border bg-background", className)}>
       <Tabs defaultValue="blockers" className="flex flex-col h-full">
-        <div className="px-4 pt-4 pb-2 border-b">
+        <div className="px-4 pt-4 pb-2 border-b border-border">
           <TabsList className="w-full">
             <TabsTrigger value="blockers" className="flex-1 gap-2">
               <AlertTriangle className="h-3.5 w-3.5" />
@@ -74,7 +74,7 @@ export function BlockerSidebar({
         </div>
 
         <TabsContent value="blockers" className="flex-1 m-0 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
             <span className="text-xs text-muted-foreground">
               {activeCount} active{dismissedCount > 0 && `, ${dismissedCount} dismissed`}
             </span>

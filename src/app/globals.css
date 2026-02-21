@@ -11,15 +11,15 @@
 
 /* File preview syntax highlighting */
 .file-preview-code pre {
-  @apply m-0 overflow-auto rounded-none bg-[#0d1117] p-4;
+  @apply m-0 overflow-auto rounded-none bg-[#0d1117] p-4 leading-tight;
 }
 
 .file-preview-code code {
-  @apply font-mono;
+  @apply font-mono text-[13px];
 }
 
 .file-preview-code .line {
-  @apply block px-4 -mx-4;
+  @apply block px-4 -mx-4 leading-5;
 }
 
 .file-preview-code .line::before {
@@ -165,17 +165,35 @@
 
 /* ReactFlow dark mode controls */
 .react-flow__controls {
-  @apply bg-background border-border shadow-lg;
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: none !important;
 }
 
 .react-flow__controls-button {
-  @apply bg-background border-border fill-foreground hover:bg-muted;
+  background: hsl(var(--background)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  fill: hsl(var(--foreground)) !important;
+}
+
+.react-flow__controls-button:hover {
+  background: hsl(var(--muted)) !important;
 }
 
 .react-flow__controls-button svg {
-  @apply fill-current;
+  fill: hsl(var(--foreground)) !important;
+}
+
+.react-flow__controls-button svg path {
+  fill: hsl(var(--foreground)) !important;
 }
 
 .react-flow__minimap {
-  @apply bg-background border-border;
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+.react-flow__minimap-mask {
+  fill: hsl(var(--background)) !important;
+  opacity: 0.8;
 }

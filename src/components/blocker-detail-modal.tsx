@@ -123,10 +123,10 @@ export function BlockerDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 border border-border">
         {viewMode === "suggestion" && suggestion ? (
           <>
-            <DialogHeader className="px-6 py-4 border-b shrink-0">
+            <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -152,7 +152,7 @@ export function BlockerDetailModal({
         ) : (
           <>
             {/* Header */}
-            <DialogHeader className="px-6 py-4 border-b shrink-0">
+            <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className={cn("p-2 rounded-lg shrink-0", config.bgColor)}>
@@ -227,7 +227,7 @@ export function BlockerDetailModal({
             </ScrollArea>
 
             {/* Footer */}
-            <DialogFooter className="px-6 py-4 border-t shrink-0">
+            <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
               <div className="flex items-center justify-between w-full">
                 <Button
                   variant="ghost"

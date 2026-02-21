@@ -170,8 +170,8 @@ export function FilePreview({
   const fileName = file.split("/").pop() || file;
 
   return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="shrink-0 border-b pb-3">
+    <Card className="flex h-full flex-col border-0 rounded-none shadow-none">
+      <CardHeader className="shrink-0 border-b border-border pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
@@ -262,7 +262,7 @@ export function FilePreview({
       </CardContent>
 
       {(dependencies.length > 0 || dependents.length > 0) && (
-        <div className="shrink-0 border-t p-3">
+        <div className="shrink-0 border-t border-border p-3">
           <div className="flex flex-wrap gap-4 text-xs">
             {dependencies.length > 0 && (
               <div className="flex items-center gap-2">

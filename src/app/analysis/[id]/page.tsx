@@ -140,8 +140,7 @@ export default function AnalysisPage() {
   const handleSelectBlocker = (blocker: Blocker) => {
     setSelectedBlocker(blocker);
     setModalOpen(true);
-    // Highlight in graph
-    if (blocker.file) setSelectedFile(blocker.file);
+    // Don't open file sheet - modal shows all info
   };
 
   const handleDismissBlocker = (blockerId: string) => {
@@ -202,7 +201,7 @@ export default function AnalysisPage() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="shrink-0 px-4 py-3 border-b flex items-center justify-between bg-background">
+      <header className="shrink-0 px-4 py-3 border-b border-border flex items-center justify-between bg-background">
         <div className="flex items-center gap-4">
           <Button asChild variant="ghost" size="sm">
             <Link href="/">
@@ -275,7 +274,7 @@ export default function AnalysisPage() {
 
       {/* File Preview Sheet */}
       <Sheet open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
-        <SheetContent className="w-[500px] sm:w-[600px] p-0">
+        <SheetContent className="w-[700px] sm:max-w-[700px] p-0 border-l-0">
           {selectedFile && (
             <FilePreview
               file={selectedFile}
