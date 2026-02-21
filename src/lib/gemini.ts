@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { DependencyGraph } from "@/types/analysis";
+import type { DependencyGraph, Blocker as AnalysisBlocker } from "@/types/analysis";
+import type { FixSuggestion } from "@/types/fix-suggestion";
 
 const MAX_FILE_CHARS = 4000;
 const MAX_CONTEXT_TOKENS = 30000;
@@ -141,6 +142,56 @@ const analysisSchema = {
     summary: { type: Type.STRING },
   },
   required: ["blockers", "dependencies", "actions", "summary"],
+};
+
+// Schema for fix suggestion
+const fixSuggestionSchema = {
+  type: Type.OBJECT,
+  properties: {
+    summary: { type: Type.STRING },
+    codeChanges: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          file: { type: Type.STRING },
+          startLine: { type: Type.NUMBER },
+          endLine: { type: Type.NUMBER },
+          originalCode: { type: Type.STRING },
+          suggestedCode: { type: Type.STRING },
+          explanation: { type: Type.STRING },
+        },
+        required: ["file", "startLine", "endLine", "originalCode", "suggestedCode", "explanation"],
+      },
+    },
+    packageUpdates: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          package: { type: Type.STRING },
+          currentVersion: { type: Type.STRING },
+          suggestedVersion: { type: Type.STRING },
+          reason: { type: Type.STRING },
+        },
+        required: ["package", "suggestedVersion", "reason"],
+      },
+    },
+    references: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          url: { type: Type.STRING },
+        },
+        required: ["title", "url"],
+      },
+    },
+    confidence: { type: Type.STRING, enum: ["low", "medium", "high"] },
+    effort: { type: Type.STRING, enum: ["small", "medium", "large"] },
+  },
+  required: ["summary", "codeChanges", "packageUpdates", "references", "confidence", "effort"],
 };
 
 export function truncateFile(content: string, maxChars = MAX_FILE_CHARS): string {
@@ -327,6 +378,46 @@ ${filesContent}`;
       if (!text) throw new Error("Empty response from Gemini");
 
       return JSON.parse(text) as DependencyGraph;
+    },
+
+    async generateFixSuggestion(
+      blocker: AnalysisBlocker,
+      fileContent?: string
+    ): Promise<FixSuggestion> {
+      const prompt = `You are an expert code reviewer helping fix a blocker issue in a codebase.
+
+Blocker Details:
+- Title: ${blocker.title}
+- Description: ${blocker.description}
+- Severity: ${blocker.severity}
+- Category: ${blocker.category}
+${blocker.file ? `- File: ${blocker.file}${blocker.line ? `:${blocker.line}` : ""}` : ""}
+
+${fileContent ? `Current File Content:\n\`\`\`\n${truncateFile(fileContent)}\n\`\`\`` : ""}
+
+Generate a detailed fix suggestion that includes:
+1. A clear summary of how to fix this issue
+2. Specific code changes (if applicable) with original and suggested code
+3. Any package updates needed
+4. Links to relevant documentation
+5. Your confidence level in this fix (low/medium/high)
+6. Estimated effort to implement (small/medium/large)
+
+Be specific and actionable. If this is a conceptual issue without specific code to change, provide guidance in the summary and leave codeChanges empty.`;
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: fixSuggestionSchema,
+        },
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response from Gemini");
+
+      return JSON.parse(text) as FixSuggestion;
     },
   };
 }

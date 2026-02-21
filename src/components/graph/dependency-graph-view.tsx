@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GitBranch, Network, Boxes, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { DependencyGraph, Blocker, Severity } from "@/types/analysis";
 import { FileNode, type FileNodeData } from "./file-node";
 import { DependencyEdge, type DependencyEdgeData } from "./dependency-edge";
@@ -30,19 +31,88 @@ interface DependencyGraphViewProps {
   graph: DependencyGraph;
   blockers?: Blocker[];
   onNodeClick?: (path: string) => void;
+  className?: string;
+  filterExternal?: boolean;
 }
 
 const nodeTypes = { fileNode: FileNode };
 const edgeTypes = { dependency: DependencyEdge };
 
+function isInternalFile(path: string): boolean {
+  if (path.includes("(inferred)")) return false;
+  if (path.includes("(environment)")) return false;
+  if (path.startsWith("node_modules")) return false;
+  if (path.includes("/node_modules/")) return false;
+  // Only include common source file extensions
+  const validExtensions = /\.(tsx?|jsx?|json|md|css|scss)$/;
+  return validExtensions.test(path);
+}
+
+// Normalize import path to match file paths
+function normalizeImportPath(importPath: string): string {
+  let normalized = importPath;
+  // Remove @ alias prefix and replace with src/
+  if (normalized.startsWith("@/")) {
+    normalized = "src/" + normalized.slice(2);
+  }
+  // Remove leading ./
+  if (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
+  }
+  return normalized;
+}
+
+// Find matching file path for an import
+function findMatchingFile(importPath: string, filePaths: Set<string>): string | null {
+  // Direct match
+  if (filePaths.has(importPath)) return importPath;
+
+  const normalized = normalizeImportPath(importPath);
+  if (filePaths.has(normalized)) return normalized;
+
+  // Try with extensions
+  const extensions = [".ts", ".tsx", ".js", ".jsx"];
+  for (const ext of extensions) {
+    if (filePaths.has(normalized + ext)) return normalized + ext;
+    if (filePaths.has(importPath + ext)) return importPath + ext;
+  }
+
+  // Try index files
+  for (const ext of extensions) {
+    if (filePaths.has(normalized + "/index" + ext)) return normalized + "/index" + ext;
+    if (filePaths.has(importPath + "/index" + ext)) return importPath + "/index" + ext;
+  }
+
+  // Fuzzy match: find any file that ends with the import path
+  const candidates = Array.from(filePaths);
+  for (const candidate of candidates) {
+    const candidateBase = candidate.replace(/\.(tsx?|jsx?)$/, "");
+    const importBase = normalized.replace(/\.(tsx?|jsx?)$/, "");
+    if (candidateBase.endsWith(importBase) || candidateBase.endsWith("/" + importBase)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function buildImportGraph(
   graph: DependencyGraph,
-  blockers: Blocker[]
+  blockers: Blocker[],
+  filterExternal = true
 ): { nodes: Node<FileNodeData>[]; edges: Edge<DependencyEdgeData>[] } {
   // Handle empty/malformed graph
   if (!graph.files || graph.files.length === 0) {
     return { nodes: [], edges: [] };
   }
+
+  // Filter external files if requested
+  const filteredFiles = filterExternal
+    ? graph.files.filter((f) => isInternalFile(f.path))
+    : graph.files;
+
+  const filteredPaths = new Set(filteredFiles.map((f) => f.path));
+
   const blockerMap = new Map<string, Severity>();
   blockers.forEach((b) => {
     if (b.file) blockerMap.set(b.file, b.severity);
@@ -52,7 +122,7 @@ function buildImportGraph(
   const orphanSet = new Set(graph.orphans || []);
   const entrySet = new Set(graph.entryPoints || []);
 
-  const nodes: Node<FileNodeData>[] = graph.files.map((file) => ({
+  const nodes: Node<FileNodeData>[] = filteredFiles.map((file) => ({
     id: file.path,
     type: "fileNode",
     position: { x: 0, y: 0 },
@@ -73,21 +143,21 @@ function buildImportGraph(
   }));
 
   const edges: Edge<DependencyEdgeData>[] = [];
-  graph.files.forEach((file) => {
+  filteredFiles.forEach((file) => {
     file.imports.forEach((imp, idx) => {
-      // Check if target exists in our files
-      const targetExists = graph.files.some((f) => f.path === imp.from);
-      if (!targetExists) return;
+      // Find matching file path for this import
+      const targetPath = findMatchingFile(imp.from, filteredPaths);
+      if (!targetPath) return;
 
       const isCircular =
         graph.circularDeps.some(
-          (cycle) => cycle.includes(file.path) && cycle.includes(imp.from)
+          (cycle) => cycle.includes(file.path) && cycle.includes(targetPath)
         );
 
       edges.push({
-        id: `${file.path}->${imp.from}-${idx}`,
+        id: `${file.path}->${targetPath}-${idx}`,
         source: file.path,
-        target: imp.from,
+        target: targetPath,
         type: "dependency",
         data: {
           isCircular,
@@ -103,10 +173,11 @@ function buildImportGraph(
 
 function buildClusterGraph(
   graph: DependencyGraph,
-  blockers: Blocker[]
+  blockers: Blocker[],
+  filterExternal = true
 ): { nodes: Node<FileNodeData>[]; edges: Edge<DependencyEdgeData>[] } {
   // Group by cluster with layout per cluster
-  const result = buildImportGraph(graph, blockers);
+  const result = buildImportGraph(graph, blockers, filterExternal);
 
   if (!graph.clusters || graph.clusters.length === 0) {
     return result;
@@ -147,15 +218,17 @@ export function DependencyGraphView({
   graph,
   blockers = [],
   onNodeClick,
+  className,
+  filterExternal = true,
 }: DependencyGraphViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("imports");
 
   const initialData = useMemo(() => {
     if (viewMode === "clusters") {
-      return buildClusterGraph(graph, blockers);
+      return buildClusterGraph(graph, blockers, filterExternal);
     }
-    return buildImportGraph(graph, blockers);
-  }, [graph, blockers, viewMode]);
+    return buildImportGraph(graph, blockers, filterExternal);
+  }, [graph, blockers, viewMode, filterExternal]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialData.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialData.edges);
@@ -164,11 +237,11 @@ export function DependencyGraphView({
   useMemo(() => {
     const data =
       viewMode === "clusters"
-        ? buildClusterGraph(graph, blockers)
-        : buildImportGraph(graph, blockers);
+        ? buildClusterGraph(graph, blockers, filterExternal)
+        : buildImportGraph(graph, blockers, filterExternal);
     setNodes(data.nodes);
     setEdges(data.edges);
-  }, [viewMode, graph, blockers, setNodes, setEdges]);
+  }, [viewMode, graph, blockers, filterExternal, setNodes, setEdges]);
 
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -179,18 +252,18 @@ export function DependencyGraphView({
 
   const stats = useMemo(
     () => ({
-      files: graph.files?.length || 0,
+      files: nodes.length,
       circular: graph.circularDeps?.length || 0,
       orphans: graph.orphans?.length || 0,
       clusters: graph.clusters?.length || 0,
     }),
-    [graph]
+    [graph, nodes.length]
   );
 
   // Empty state
   if (stats.files === 0) {
     return (
-      <Card className="h-full flex flex-col">
+      <Card className={cn("h-full flex flex-col", className)}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base font-medium">
             <GitBranch className="h-4 w-4" />
@@ -205,7 +278,7 @@ export function DependencyGraphView({
   }
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className={cn("h-full flex flex-col", className)}>
       <CardHeader className="pb-2 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base font-medium">
@@ -250,8 +323,8 @@ export function DependencyGraphView({
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-0">
-        <div className="h-[500px] w-full">
+      <CardContent className="flex-1 p-0 min-h-0">
+        <div className="h-full w-full">
           <ReactFlow
             nodes={nodes}
             edges={edges}

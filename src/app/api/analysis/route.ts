@@ -60,6 +60,97 @@ function isParseError(result: ParsedRepo | ParseError): result is ParseError {
   return "error" in result;
 }
 
+// Smart file selection - prioritizes actual source code over config
+function selectRelevantFiles(filePaths: string[], maxFiles = 80): string[] {
+  const sourceExts = [".ts", ".tsx", ".js", ".jsx"];
+  const configExts = [".json", ".md", ".yml", ".yaml"];
+
+  // Filter out obviously irrelevant files
+  const candidates = filePaths.filter((p) => {
+    const ext = "." + (p.split(".").pop() || "");
+    if (![...sourceExts, ...configExts].includes(ext)) return false;
+    if (p.includes("node_modules")) return false;
+    if (p.includes(".min.")) return false;
+    if (p.includes("dist/") || p.includes("build/") || p.includes(".next/")) return false;
+    if (p.includes("coverage/") || p.includes(".cache/")) return false;
+    return true;
+  });
+
+  // Scoring function - higher = more important
+  const scoreFile = (path: string): number => {
+    let score = 0;
+    const lower = path.toLowerCase();
+    const ext = "." + (path.split(".").pop() || "");
+
+    // Source code > config
+    if (sourceExts.includes(ext)) score += 100;
+
+    // Prioritize key directories
+    if (lower.includes("/src/")) score += 50;
+    if (lower.includes("/app/")) score += 50;
+    if (lower.includes("/pages/")) score += 45;
+    if (lower.includes("/lib/")) score += 40;
+    if (lower.includes("/utils/")) score += 35;
+    if (lower.includes("/hooks/")) score += 35;
+    if (lower.includes("/components/")) score += 30;
+    if (lower.includes("/api/")) score += 40;
+    if (lower.includes("/server/")) score += 40;
+    if (lower.includes("/services/")) score += 35;
+    if (lower.includes("/controllers/")) score += 35;
+    if (lower.includes("/routes/")) score += 35;
+    if (lower.includes("/models/")) score += 30;
+    if (lower.includes("/types/")) score += 25;
+
+    // Deprioritize test/config files
+    if (lower.includes(".test.") || lower.includes(".spec.")) score -= 30;
+    if (lower.includes("__tests__") || lower.includes("__mocks__")) score -= 30;
+    if (lower.includes("/test/") || lower.includes("/tests/")) score -= 25;
+    if (lower.includes(".config.") || lower.includes("config/")) score -= 20;
+    if (lower.includes(".d.ts")) score -= 15;
+
+    // Important root files
+    if (path === "package.json") score += 80;
+    if (path === "tsconfig.json") score += 20;
+    if (lower.endsWith("readme.md")) score -= 10;
+
+    // Entry points are important
+    if (lower.includes("index.") && !lower.includes("test")) score += 15;
+    if (lower.includes("main.") || lower.includes("app.")) score += 20;
+    if (lower.includes("page.tsx") || lower.includes("page.ts")) score += 25;
+    if (lower.includes("route.ts") || lower.includes("route.tsx")) score += 25;
+    if (lower.includes("layout.tsx") || lower.includes("layout.ts")) score += 20;
+
+    // Deeper nesting = less important (but not too much penalty)
+    const depth = path.split("/").length;
+    score -= Math.min(depth * 2, 10);
+
+    return score;
+  };
+
+  // Score and sort
+  const scored = candidates.map((p) => ({ path: p, score: scoreFile(p) }));
+  scored.sort((a, b) => b.score - a.score);
+
+  // Take top files but ensure diversity across directories
+  const selected: string[] = [];
+  const dirCounts = new Map<string, number>();
+  const maxPerDir = 10; // Don't take more than 10 files from same directory
+
+  for (const { path } of scored) {
+    if (selected.length >= maxFiles) break;
+
+    const dir = path.split("/").slice(0, -1).join("/") || "/";
+    const count = dirCounts.get(dir) || 0;
+
+    if (count < maxPerDir) {
+      selected.push(path);
+      dirCounts.set(dir, count + 1);
+    }
+  }
+
+  return selected;
+}
+
 // Transform Gemini blocker output to frontend Blocker type
 function transformBlockers(blockers: Array<{
   file: string;
@@ -172,13 +263,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Fetch key files for analysis
-    const relevantExts = [".ts", ".tsx", ".js", ".jsx", ".json", ".md"];
-    const relevantFiles = filePaths
-      .filter((p) => relevantExts.some((ext) => p.endsWith(ext)))
-      .filter((p) => !p.includes("node_modules"))
-      .filter((p) => !p.includes(".min."))
-      .slice(0, 30); // limit files
+    // 2. Fetch key files for analysis with smart selection
+    const relevantFiles = selectRelevantFiles(filePaths);
 
     const fileContents: { path: string; content: string }[] = [];
     const fetchErrors: string[] = [];

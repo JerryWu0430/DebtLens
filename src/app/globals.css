@@ -162,3 +162,20 @@
     }
   }
 }
+
+/* ReactFlow dark mode controls */
+.react-flow__controls {
+  @apply bg-background border-border shadow-lg;
+}
+
+.react-flow__controls-button {
+  @apply bg-background border-border fill-foreground hover:bg-muted;
+}
+
+.react-flow__controls-button svg {
+  @apply fill-current;
+}
+
+.react-flow__minimap {
+  @apply bg-background border-border;
+}
