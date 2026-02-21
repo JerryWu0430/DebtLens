@@ -1,20 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { analyses, repoCache } from "@/db/schema";
-import { getFileTree, getFileContent, getPackageJson } from "@/lib/github";
+import { getFileTree, getFileContent, getPackageJson, GitHubError } from "@/lib/github";
 import { createGeminiClient } from "@/lib/gemini";
 
-function parseRepoUrl(url: string): { owner: string; repo: string } | null {
+type ParsedRepo = { owner: string; repo: string };
+type ParseError = { error: string };
+
+function parseRepoUrl(url: string): ParsedRepo | ParseError {
+  const trimmed = url.trim();
+
+  if (!trimmed) {
+    return { error: "Repository URL is required" };
+  }
+
+  // reject obviously invalid URLs
+  if (trimmed.includes(" ")) {
+    return { error: "URL cannot contain spaces" };
+  }
+
+  // reject non-github URLs
+  if (trimmed.includes("://") && !trimmed.includes("github.com")) {
+    return { error: "Only GitHub repositories are supported" };
+  }
+
   // handles: https://github.com/owner/repo, github.com/owner/repo, owner/repo
   const patterns = [
     /github\.com\/([^/]+)\/([^/\s]+)/,
     /^([^/\s]+)\/([^/\s]+)$/,
   ];
+
+  const cleaned = trimmed.replace(/\.git$/, "").replace(/\/$/, "");
+
   for (const pattern of patterns) {
-    const match = url.trim().replace(/\.git$/, "").match(pattern);
-    if (match) return { owner: match[1], repo: match[2] };
+    const match = cleaned.match(pattern);
+    if (match) {
+      const owner = match[1];
+      const repo = match[2];
+
+      // validate owner/repo format
+      if (owner.startsWith("-") || repo.startsWith("-")) {
+        return { error: "Invalid repository name format" };
+      }
+
+      return { owner, repo };
+    }
   }
-  return null;
+
+  return { error: "Invalid GitHub URL. Use format: owner/repo or https://github.com/owner/repo" };
+}
+
+function isParseError(result: ParsedRepo | ParseError): result is ParseError {
+  return "error" in result;
 }
 
 export async function POST(req: NextRequest) {
@@ -27,8 +64,8 @@ export async function POST(req: NextRequest) {
     }
 
     const parsed = parseRepoUrl(repoUrl);
-    if (!parsed) {
-      return NextResponse.json({ error: "Invalid repo URL" }, { status: 400 });
+    if (isParseError(parsed)) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
     const { owner, repo } = parsed;
@@ -39,6 +76,14 @@ export async function POST(req: NextRequest) {
     const filePaths = tree.tree
       .filter((item) => item.type === "blob")
       .map((item) => item.path);
+
+    // Check for large repo truncation
+    const warnings: string[] = [];
+    if (tree.truncated) {
+      warnings.push(
+        `Repository is large (${filePaths.length}+ files). Analysis is based on partial file tree.`
+      );
+    }
 
     // 2. Fetch key files for analysis
     const relevantExts = [".ts", ".tsx", ".js", ".jsx", ".json", ".md"];
@@ -103,9 +148,29 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    return NextResponse.json({ id: inserted.id, result });
+    return NextResponse.json({
+      id: inserted.id,
+      result,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    });
   } catch (err) {
     console.error("Analysis error:", err);
+
+    // Handle GitHub-specific errors
+    if (err instanceof GitHubError) {
+      const statusMap: Record<string, number> = {
+        RATE_LIMITED: 429,
+        NOT_FOUND: 404,
+        PRIVATE_REPO: 403,
+        NETWORK_ERROR: 502,
+        UNKNOWN: 500,
+      };
+      return NextResponse.json(
+        { error: err.message, code: err.code },
+        { status: statusMap[err.code] || 500 }
+      );
+    }
+
     const message = err instanceof Error ? err.message : "Analysis failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }

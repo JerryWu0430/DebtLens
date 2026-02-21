@@ -1,20 +1,66 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
+type AnalysisError = {
+  error: string;
+  code?: string;
+};
+
 export default function Home() {
+  const router = useRouter();
   const [repoUrl, setRepoUrl] = useState("");
   const [painPoints, setPainPoints] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<AnalysisError | null>(null);
 
-  const handleAnalyze = () => {
-    // TODO: implement analysis
-    console.log({ repoUrl, painPoints });
+  const handleAnalyze = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repoUrl,
+          painPoint: painPoints,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError({ error: data.error, code: data.code });
+        return;
+      }
+
+      router.push(`/analysis/${data.id}`);
+    } catch {
+      setError({ error: "Failed to connect. Please try again." });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const isValid = repoUrl.trim().length > 0;
+  const isValid = repoUrl.trim().length > 0 && !loading;
+
+  const getErrorMessage = (err: AnalysisError) => {
+    if (err.code === "RATE_LIMITED") {
+      return "GitHub rate limit reached. Wait a few minutes or add a GitHub token.";
+    }
+    if (err.code === "PRIVATE_REPO") {
+      return "This repository is private. Public repos only for now.";
+    }
+    if (err.code === "NOT_FOUND") {
+      return "Repository not found. Check the URL and try again.";
+    }
+    return err.error;
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
@@ -56,13 +102,19 @@ export default function Home() {
             />
           </div>
 
+          {error && (
+            <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+              {getErrorMessage(error)}
+            </div>
+          )}
+
           <Button
             className="w-full"
             size="lg"
             onClick={handleAnalyze}
             disabled={!isValid}
           >
-            Analyze Repository
+            {loading ? "Analyzing..." : "Analyze Repository"}
           </Button>
         </div>
       </main>
