@@ -212,7 +212,7 @@ export function BlockerDetailModal({
             </DialogHeader>
             <div className="overflow-auto max-h-[calc(90vh-14rem)]">
               <div className="p-6 min-w-0">
-                <FixSuggestionView suggestion={suggestion} />
+                <FixSuggestionView suggestion={suggestion} repoUrl={repoUrl} blocker={blocker} />
               </div>
             </div>
           </>
