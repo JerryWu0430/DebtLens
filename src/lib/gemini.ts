@@ -6,7 +6,6 @@ const MAX_FILE_CHARS = 4000;
 const MAX_CONTEXT_TOKENS = 30000;
 const CHARS_PER_TOKEN = 4;
 const MAX_CONTEXT_CHARS = MAX_CONTEXT_TOKENS * CHARS_PER_TOKEN;
-const MAX_DEPTH = 3; // max import chain depth
 
 // Structured output types
 export type Blocker = {
@@ -261,7 +260,7 @@ export function createGeminiClient(config?: GeminiConfig) {
   if (!apiKey) throw new Error("GEMINI_API_KEY required");
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = config?.model || "gemini-2.5-flash";
+  const model = config?.model || "gemini-3-flash-preview";
 
   return {
     async *streamAnalysis(
@@ -384,35 +383,46 @@ ${filesContent}`;
       const truncatedFiles = truncateContext(files);
       const filesContent = formatFilesForPrompt(truncatedFiles);
 
-      const prompt = `Analyze the dependency structure of this codebase. For each file:
-1. Identify its type (component, hook, util, api, type, config, test, style, unknown)
-2. Extract all imports (internal only, skip node_modules). Include:
-   - 'from': the source file path (resolve relative paths)
-   - 'symbols': array of imported names
-   - 'isDefault': true if default import
-   - 'isDynamic': true if dynamic import()
-3. List exported symbols
-4. Estimate metrics (lines, cyclomatic complexity 1-10)
-5. Note any issues - BE THOROUGH about detecting:
-   - CIRCULAR IMPORTS: Files importing each other (A↔B or A→B→C→A)
-   - DUPLICATE CODE: Similar utilities/functions across multiple files
-   - Unused imports or exports
-   - High coupling between unrelated modules
+      const prompt = `You are analyzing a codebase to build a COMPLETE dependency graph. You MUST include EVERY file provided and ALL their import relationships.
 
-Then identify:
-- circularDeps: arrays of file paths forming import cycles (CRITICAL - must detect all cycles!)
-- entryPoints: files nothing imports (app entry, pages)
-- orphans: files with no imports AND nothing imports them
-- clusters: group files by feature/domain (auth, api, components, etc)
-  - Note: low cohesion in a cluster often indicates duplicate implementations
+CRITICAL REQUIREMENTS:
+- You MUST return an entry in 'files' array for EVERY SINGLE FILE provided below
+- You MUST extract EVERY import statement from each file
+- Do NOT skip any files - even if they seem unimportant
+- Do NOT skip any imports - capture ALL of them
 
-IMPORTANT: Pay special attention to files with similar names or similar function exports.
-Look for duplicate implementations like: formatDate/dateToString, parseUrl/urlParser, etc.
+For EACH file, provide:
+1. path: exact file path as given
+2. type: component | hook | util | api | type | config | test | style | unknown
+3. imports: Extract ALL import/require statements. For each:
+   - 'from': resolve the import path to actual file path
+     - '@/components/X' → 'src/components/X.tsx' or 'src/components/X/index.tsx'
+     - '../utils/Y' → resolve relative to current file
+     - './Z' → resolve relative to current file
+   - 'symbols': array of imported names (use ['default'] for default imports)
+   - 'isDefault': true if "import X from" or "import { default as X }"
+   - 'isDynamic': true if using import() or require()
+4. exports: ALL exported symbols (functions, classes, constants, types)
+5. metrics: { lines: count, complexity: 1-10 estimate }
+6. issues: any problems found (unused imports, etc)
 
-Max import depth: ${MAX_DEPTH} levels.
-Only include internal project files, skip external packages.
+IMPORT RESOLUTION RULES:
+- '@/' prefix maps to 'src/'
+- Look for .ts, .tsx, .js, .jsx extensions
+- Check for index.ts/index.tsx in directories
+- Skip imports from 'react', 'next', node_modules packages
 
-Files:
+Then analyze the graph:
+- circularDeps: Find ALL circular import chains (A→B→A or A→B→C→A)
+- entryPoints: Files that nothing else imports (pages, app entry points)
+- orphans: Files with ZERO imports AND ZERO files importing them
+- clusters: Group related files by feature/domain with cohesion score 0-1
+
+VALIDATION:
+- Number of files in output MUST equal number of files in input
+- Every import 'from' path should reference another file in the list (if internal)
+
+Files to analyze:
 ${filesContent}`;
 
       const response = await ai.models.generateContent({
@@ -455,8 +465,9 @@ Generate a detailed fix suggestion that includes:
 
 Be specific and actionable. If this is a conceptual issue without specific code to change, provide guidance in the summary and leave codeChanges empty.`;
 
+      // Use pro model for better code generation quality
       const response = await ai.models.generateContent({
-        model,
+        model: "gemini-3-pro-preview",
         contents: prompt,
         config: {
           responseMimeType: "application/json",

@@ -1,43 +1,423 @@
 # DebtLens
 
-Tech Debt Triage Tool - turn fuzzy pain into concrete blockers, file locations, and action items.
+**AI-Powered Technical Debt Analysis & Visualization Platform**
 
-## Setup
+Transform fuzzy pain points into concrete blockers, visualize dependency graphs, and generate one-click PR fixes.
+
+![Next.js](https://img.shields.io/badge/Next.js-14.2-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)
+![Gemini](https://img.shields.io/badge/Gemini-3.0-orange?logo=google)
+![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite)
+
+---
+
+## Features
+
+### Analysis Engine
+- **AI-Powered Blocker Detection** - Identifies critical, high, medium, and low severity issues
+- **Code Evidence Extraction** - Provides file locations, line numbers, and code snippets for critical/high blockers
+- **Smart Category Inference** - Automatically categorizes issues:
+  - `security` - Vulnerabilities, injection risks
+  - `performance` - Slow operations, memory leaks
+  - `type-safety` - TypeScript issues, `any` usage
+  - `duplicate-workflow` - Redundant code patterns
+  - `circular-coupling` - Circular import dependencies
+  - `outdated-package` - Outdated dependencies
+  - `testing` - Missing test coverage
+  - `maintenance` - Legacy code, deprecations
+
+### Interactive Dependency Graph
+- **Two Visualization Modes**:
+  - **Imports View** - Full dependency tree showing import relationships
+  - **Clusters View** - Files grouped by feature/domain
+- **Real-time Detection**:
+  - Circular dependency highlighting
+  - Orphan file identification
+  - Entry point detection
+- **File Classification** - Components, hooks, utilities, APIs, types, configs
+- **Click-to-Preview** - View file contents with syntax highlighting
+
+### AI Fix Suggestions
+- **Per-Blocker Code Changes** - Before/after diffs with explanations
+- **Package Update Recommendations** - Version suggestions with rationale
+- **Documentation Links** - Relevant resources for each fix
+- **Confidence & Effort Estimates** - Prioritize fixes effectively
+
+### One-Click PR Generation
+- **Automated Branch Creation** - Creates `fix/{blocker-id}-{description}` branches
+- **Code Application** - Applies suggested changes automatically
+- **PR with Context** - Generates descriptive PR body with summary and changes
+- **GitHub Integration** - Direct PR creation via Personal Access Token
+
+---
+
+## Tech Stack
+
+### Frontend
+| Technology | Purpose |
+|------------|---------|
+| [Next.js 14](https://nextjs.org/) | React framework with App Router |
+| [React 18](https://react.dev/) | UI library |
+| [TypeScript 5](https://www.typescriptlang.org/) | Type-safe JavaScript |
+| [Tailwind CSS](https://tailwindcss.com/) | Utility-first CSS |
+| [shadcn/ui](https://ui.shadcn.com/) | Radix-based component library |
+| [ReactFlow](https://reactflow.dev/) | Interactive graph visualization |
+| [Shiki](https://shiki.style/) | Syntax highlighting |
+| [Lucide React](https://lucide.dev/) | Icon library |
+
+### Backend
+| Technology | Purpose |
+|------------|---------|
+| [Next.js API Routes](https://nextjs.org/docs/app/building-your-application/routing/route-handlers) | Serverless API endpoints |
+| [Drizzle ORM](https://orm.drizzle.team/) | Type-safe database ORM |
+| [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | SQLite database driver |
+| [Dagre](https://github.com/dagrejs/dagre) | Graph layout algorithm |
+
+### AI & APIs
+| Technology | Purpose |
+|------------|---------|
+| [Google Gemini 3](https://ai.google.dev/) | LLM for analysis & code generation |
+| [GitHub REST API](https://docs.github.com/en/rest) | Repository access & PR creation |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Frontend (React)                         │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│  │ Landing Page│  │Analysis View│  │   Dependency Graph      │ │
+│  │   (Home)    │  │  (Results)  │  │   (ReactFlow + Dagre)   │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│  │Blocker Modal│  │Fix Suggest. │  │   GitHub Token Modal    │ │
+│  │ (Details)   │  │  (AI Diffs) │  │   (PAT Management)      │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      API Routes (Next.js)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  POST /api/analysis          - Run full codebase analysis       │
+│  GET  /api/analysis/[id]     - Fetch stored analysis            │
+│  POST /api/suggest-fix       - Generate AI fix for blocker      │
+│  POST /api/create-pr         - Create GitHub PR from fix        │
+│  POST /api/validate-github-token - Validate PAT                 │
+│  GET  /api/file              - Fetch file content from GitHub   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Core Libraries                            │
+├─────────────────────────────────────────────────────────────────┤
+│  src/lib/gemini.ts      - Gemini AI client & prompts            │
+│  src/lib/github.ts      - GitHub API (read operations)          │
+│  src/lib/github-write.ts - GitHub API (write operations)        │
+│  src/lib/errors.ts      - Error handling utilities              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         Data Layer                               │
+├─────────────────────────────────────────────────────────────────┤
+│  SQLite Database (debtlens.db)                                  │
+│  ├── analyses      - Stored analysis results                    │
+│  └── repo_cache    - Cached file trees & dependencies           │
+│                                                                  │
+│  localStorage                                                    │
+│  ├── github-pat    - GitHub Personal Access Token               │
+│  └── dismissed-*   - Dismissed blockers per analysis            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Installation
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- Google AI Studio API key ([Get one here](https://ai.google.dev/aistudio))
+- GitHub Personal Access Token (optional, for PR creation)
+
+### Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/JerryWu0430/DebtLens.git
+cd DebtLens
+
+# Install dependencies
 npm install
-npm run db:push    # create SQLite tables
-npm run dev        # start dev server at localhost:3000
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your API keys
+
+# Initialize database
+npm run db:push
+
+# Start development server
+npm run dev
 ```
 
-## Environment
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Create `.env.local`:
+### Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```env
+# Required - Gemini AI API Key
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Optional - GitHub Token (increases rate limit from 60 to 5000 req/hr)
+GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 ```
-GEMINI_API_KEY=your_key_here    # required - get from ai.google.dev/aistudio
-GITHUB_TOKEN=ghp_xxx            # optional - increases rate limit from 60 to 5000 req/hr
-```
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | Yes | Google AI Studio API key for Gemini 3 |
+| `GITHUB_TOKEN` | No | Server-side GitHub token for higher rate limits |
+
+**Note**: For PR creation, users provide their own GitHub PAT via the UI (stored in localStorage).
+
+---
 
 ## Database
 
-SQLite + Drizzle ORM. DB file: `debtlens.db`
-
-```bash
-npm run db:push     # push schema changes
-npm run db:studio   # open Drizzle Studio GUI
-npm run db:generate # generate migrations
-npm run db:migrate  # run migrations
-```
+DebtLens uses SQLite with Drizzle ORM for persistence.
 
 ### Schema
 
-- `analyses` - stores analysis results (repo_url, pain_point, analysis_type, result JSON, mermaid_code)
-- `repo_cache` - caches repo file trees and dependencies
+```typescript
+// analyses table
+{
+  id: integer (primary key, auto-increment),
+  repoUrl: text (not null),
+  painPoint: text,
+  analysisType: text (default: 'general'),
+  result: text (JSON blob),
+  createdAt: integer (Unix timestamp)
+}
 
-## Stack
+// repoCache table
+{
+  id: integer (primary key, auto-increment),
+  repoFullName: text (unique, not null),
+  fileTree: text (JSON array),
+  dependencies: text (JSON object),
+  fetchedAt: integer (Unix timestamp)
+}
+```
 
-- Next.js 14 (App Router)
-- SQLite + Drizzle ORM
-- Gemini 1.5 Flash (LLM)
-- Mermaid.js (diagrams)
-- Tailwind + shadcn/ui
+### Commands
+
+```bash
+npm run db:push      # Push schema to database
+npm run db:studio    # Open Drizzle Studio GUI
+npm run db:generate  # Generate migrations
+npm run db:migrate   # Run migrations
+```
+
+---
+
+## API Reference
+
+### POST `/api/analysis`
+
+Run a full codebase analysis on a GitHub repository.
+
+**Request Body:**
+```json
+{
+  "repoUrl": "https://github.com/owner/repo",
+  "painPoint": "Optional focus area",
+  "analysisType": "general"
+}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "result": {
+    "blockers": [...],
+    "actions": [...],
+    "summary": "...",
+    "dependencyGraph": {...}
+  }
+}
+```
+
+### POST `/api/suggest-fix`
+
+Generate AI-powered fix suggestions for a blocker.
+
+**Request Body:**
+```json
+{
+  "blocker": { "id": "...", "title": "...", "description": "...", ... },
+  "repoUrl": "https://github.com/owner/repo"
+}
+```
+
+**Response:**
+```json
+{
+  "suggestion": {
+    "summary": "...",
+    "codeChanges": [...],
+    "packageUpdates": [...],
+    "references": [...],
+    "confidence": "high",
+    "effort": "small"
+  }
+}
+```
+
+### POST `/api/create-pr`
+
+Create a GitHub Pull Request from a fix suggestion.
+
+**Request Body:**
+```json
+{
+  "repoUrl": "https://github.com/owner/repo",
+  "suggestion": {...},
+  "blocker": {...},
+  "token": "ghp_xxx"
+}
+```
+
+**Response:**
+```json
+{
+  "prUrl": "https://github.com/owner/repo/pull/123",
+  "prNumber": 123,
+  "branchName": "fix/blocker-id-description-abc123"
+}
+```
+
+---
+
+## Project Structure
+
+```
+src/
+├── app/                      # Next.js App Router
+│   ├── page.tsx              # Landing page
+│   ├── analysis/[id]/        # Analysis results page
+│   └── api/                  # API routes
+│       ├── analysis/         # Analysis endpoints
+│       ├── suggest-fix/      # Fix suggestion endpoint
+│       ├── create-pr/        # PR creation endpoint
+│       └── file/             # File content endpoint
+├── components/               # React components
+│   ├── ui/                   # shadcn/ui components
+│   ├── graph/                # Dependency graph components
+│   ├── blocker-*.tsx         # Blocker-related components
+│   ├── fix-suggestion-*.tsx  # Fix suggestion components
+│   └── github-token-*.tsx    # GitHub auth components
+├── lib/                      # Core utilities
+│   ├── gemini.ts             # Gemini AI client
+│   ├── github.ts             # GitHub read API
+│   ├── github-write.ts       # GitHub write API
+│   ├── errors.ts             # Error handling
+│   └── utils.ts              # General utilities
+├── types/                    # TypeScript types
+│   ├── analysis.ts           # Analysis result types
+│   └── fix-suggestion.ts     # Fix suggestion types
+└── db/                       # Database
+    ├── index.ts              # Database connection
+    └── schema.ts             # Drizzle schema
+```
+
+---
+
+## AI Models
+
+DebtLens uses Google Gemini 3 models:
+
+| Task | Model | Rationale |
+|------|-------|-----------|
+| Blocker Analysis | `gemini-3-flash-preview` | Fast, cost-effective for scanning |
+| Dependency Graph | `gemini-3-flash-preview` | Fast, handles large file sets |
+| Fix Suggestions | `gemini-3-pro-preview` | Higher accuracy for code generation |
+
+### Prompt Engineering
+
+Key prompts are in `src/lib/gemini.ts`:
+
+1. **Analysis Prompt** - Detects blockers with severity, includes code snippets for critical/high issues
+2. **Dependency Graph Prompt** - Extracts all imports, resolves paths, detects circular dependencies
+3. **Fix Suggestion Prompt** - Generates actionable code changes with before/after diffs
+
+---
+
+## Development
+
+### Scripts
+
+```bash
+npm run dev       # Start development server
+npm run build     # Build for production
+npm run start     # Start production server
+npm run lint      # Run ESLint
+```
+
+### Adding Components
+
+This project uses [shadcn/ui](https://ui.shadcn.com/). To add components:
+
+```bash
+npx shadcn-ui@latest add [component-name]
+```
+
+---
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Push to GitHub
+2. Import project in [Vercel](https://vercel.com)
+3. Set environment variables
+4. Deploy
+
+### Self-Hosted
+
+```bash
+npm run build
+npm run start
+```
+
+Ensure `debtlens.db` is persisted between deployments.
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## Acknowledgments
+
+- [Google Gemini](https://ai.google.dev/) for AI capabilities
+- [ReactFlow](https://reactflow.dev/) for graph visualization
+- [shadcn/ui](https://ui.shadcn.com/) for beautiful components
+- [Drizzle ORM](https://orm.drizzle.team/) for type-safe database access
