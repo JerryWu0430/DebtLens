@@ -1,9 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import type { DependencyGraph } from "@/types/analysis";
 
 const MAX_FILE_CHARS = 4000;
 const MAX_CONTEXT_TOKENS = 30000;
-const CHARS_PER_TOKEN = 4; // rough estimate
+const CHARS_PER_TOKEN = 4;
 const MAX_CONTEXT_CHARS = MAX_CONTEXT_TOKENS * CHARS_PER_TOKEN;
+const MAX_DEPTH = 3; // max import chain depth
 
 // Structured output types
 export type Blocker = {
@@ -31,6 +33,67 @@ export type AnalysisResult = {
   dependencies: Dependency[];
   actions: Action[];
   summary: string;
+  dependencyGraph?: DependencyGraph;
+};
+
+// Schema for dependency graph
+const dependencyGraphSchema = {
+  type: Type.OBJECT,
+  properties: {
+    files: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          path: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ["component", "hook", "util", "api", "type", "config", "test", "style", "unknown"] },
+          imports: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                from: { type: Type.STRING },
+                symbols: { type: Type.ARRAY, items: { type: Type.STRING } },
+                isDefault: { type: Type.BOOLEAN },
+                isDynamic: { type: Type.BOOLEAN },
+              },
+              required: ["from", "symbols", "isDefault", "isDynamic"],
+            },
+          },
+          exports: { type: Type.ARRAY, items: { type: Type.STRING } },
+          metrics: {
+            type: Type.OBJECT,
+            properties: {
+              lines: { type: Type.NUMBER },
+              complexity: { type: Type.NUMBER },
+            },
+            required: ["lines", "complexity"],
+          },
+          issues: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ["path", "type", "imports", "exports", "metrics", "issues"],
+      },
+    },
+    circularDeps: {
+      type: Type.ARRAY,
+      items: { type: Type.ARRAY, items: { type: Type.STRING } },
+    },
+    entryPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+    orphans: { type: Type.ARRAY, items: { type: Type.STRING } },
+    clusters: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          files: { type: Type.ARRAY, items: { type: Type.STRING } },
+          cohesion: { type: Type.NUMBER },
+        },
+        required: ["name", "files", "cohesion"],
+      },
+    },
+  },
+  required: ["files", "circularDeps", "entryPoints", "orphans", "clusters"],
 };
 
 // Schema for structured output
@@ -220,6 +283,50 @@ ${filesContent}`;
       if (!text) throw new Error("Empty response from Gemini");
 
       return JSON.parse(text) as T;
+    },
+
+    async analyzeDependencyGraph(
+      files: { path: string; content: string }[]
+    ): Promise<DependencyGraph> {
+      const truncatedFiles = truncateContext(files);
+      const filesContent = formatFilesForPrompt(truncatedFiles);
+
+      const prompt = `Analyze the dependency structure of this codebase. For each file:
+1. Identify its type (component, hook, util, api, type, config, test, style, unknown)
+2. Extract all imports (internal only, skip node_modules). Include:
+   - 'from': the source file path (resolve relative paths)
+   - 'symbols': array of imported names
+   - 'isDefault': true if default import
+   - 'isDynamic': true if dynamic import()
+3. List exported symbols
+4. Estimate metrics (lines, cyclomatic complexity 1-10)
+5. Note any issues (unused imports, circular refs, etc)
+
+Then identify:
+- circularDeps: arrays of file paths forming import cycles
+- entryPoints: files nothing imports (app entry, pages)
+- orphans: files with no imports AND nothing imports them
+- clusters: group files by feature/domain (auth, api, components, etc)
+
+Max import depth: ${MAX_DEPTH} levels.
+Only include internal project files, skip external packages.
+
+Files:
+${filesContent}`;
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: dependencyGraphSchema,
+        },
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response from Gemini");
+
+      return JSON.parse(text) as DependencyGraph;
     },
   };
 }

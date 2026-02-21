@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { BlockerList } from "@/components/blocker-card";
 import { ActionList } from "@/components/action-list";
-import { DependencyDiagram } from "@/components/dependency-diagram";
-import { FocusedDiagram } from "@/components/focused-diagram";
+import { DependencyGraphView } from "@/components/graph";
+import { FilePreview } from "@/components/file-preview";
 import { AnalysisSkeleton } from "@/components/analysis-skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AnalysisResult, Blocker, Action } from "@/types/analysis";
+import { AnalysisResult, Blocker, Action, DependencyGraph } from "@/types/analysis";
 import {
   ArrowLeft,
   ExternalLink,
@@ -38,9 +38,10 @@ export default function AnalysisPage() {
   const [blockers, setBlockers] = useState<Blocker[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
   const [repoUrl, setRepoUrl] = useState<string>("");
-  const [mermaidCode, setMermaidCode] = useState<string>("");
+  const [dependencyGraph, setDependencyGraph] = useState<DependencyGraph | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [selectedBlocker, setSelectedBlocker] = useState<Blocker | null>(null);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   const fetchAnalysis = async () => {
     setState("loading");
@@ -61,8 +62,8 @@ export default function AnalysisPage() {
       setRepoUrl(result.repoUrl);
       setBlockers(result.blockers);
       setActions(result.actions);
-      if (result.mermaidCode) {
-        setMermaidCode(result.mermaidCode);
+      if (result.dependencyGraph) {
+        setDependencyGraph(result.dependencyGraph);
       }
       setState("complete");
     } catch (err) {
@@ -163,97 +164,107 @@ export default function AnalysisPage() {
           </div>
         </header>
 
-        {mermaidCode && !selectedBlocker && (
-          <section>
-            <ErrorBoundary
-              fallback={
-                <Card className="border-destructive/30">
-                  <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
-                    <AlertCircle className="h-4 w-4 text-destructive" />
-                    Failed to render dependency diagram
-                  </CardContent>
-                </Card>
-              }
-            >
-              <DependencyDiagram
-                mermaidCode={mermaidCode}
-                blockers={blockers}
-                repoUrl={repoUrl}
-              />
-            </ErrorBoundary>
+        {dependencyGraph && (
+          <section className="flex gap-4">
+            <div className={selectedFile ? "flex-1" : "w-full"}>
+              <ErrorBoundary
+                fallback={
+                  <Card className="border-destructive/30">
+                    <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      Failed to render dependency graph
+                    </CardContent>
+                  </Card>
+                }
+              >
+                <DependencyGraphView
+                  graph={dependencyGraph}
+                  blockers={blockers}
+                  onNodeClick={(path) => setSelectedFile(path)}
+                />
+              </ErrorBoundary>
+            </div>
+
+            {selectedFile && (
+              <div className="w-[400px] shrink-0">
+                <div className="sticky top-4 h-[500px]">
+                  <FilePreview
+                    file={selectedFile}
+                    repoUrl={repoUrl}
+                    blocker={blockers.find((b) => b.file === selectedFile)}
+                    onClose={() => setSelectedFile(null)}
+                    dependencies={
+                      dependencyGraph?.files
+                        ?.find((f) => f.path === selectedFile)
+                        ?.imports.map((i) => i.from) || []
+                    }
+                    dependents={
+                      dependencyGraph?.files
+                        ?.filter((f) =>
+                          f.imports.some((i) => i.from === selectedFile)
+                        )
+                        .map((f) => f.path) || []
+                    }
+                  />
+                </div>
+              </div>
+            )}
           </section>
         )}
 
-        <div className="flex gap-6">
-          {/* Main content - Tabs */}
-          <div className={selectedBlocker ? "flex-1" : "w-full"}>
-            <Tabs defaultValue="blockers" className="w-full">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="blockers" className="gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  Blockers
-                  {blockers.length > 0 && (
-                    <span className="ml-1 rounded-full bg-destructive/20 px-2 py-0.5 text-xs text-destructive">
-                      {blockers.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="actions" className="gap-2">
-                  <Zap className="h-4 w-4" />
-                  Actions
-                  {actions.length > 0 && (
-                    <span className="ml-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs">
-                      {actions.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+        <Tabs defaultValue="blockers" className="w-full">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="blockers" className="gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Blockers
+              {blockers.length > 0 && (
+                <span className="ml-1 rounded-full bg-destructive/20 px-2 py-0.5 text-xs text-destructive">
+                  {blockers.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="actions" className="gap-2">
+              <Zap className="h-4 w-4" />
+              Actions
+              {actions.length > 0 && (
+                <span className="ml-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs">
+                  {actions.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-              <TabsContent value="blockers" className="mt-6">
-                {blockers.length > 0 ? (
-                  <BlockerList
-                    blockers={blockers}
-                    repoUrl={repoUrl}
-                    selectedBlocker={selectedBlocker}
-                    onSelectBlocker={(blocker) =>
-                      setSelectedBlocker(
-                        selectedBlocker?.id === blocker.id ? null : blocker
-                      )
-                    }
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground py-8 text-center">
-                    No blockers found
-                  </p>
-                )}
-              </TabsContent>
+          <TabsContent value="blockers" className="mt-6">
+            {blockers.length > 0 ? (
+              <BlockerList
+                blockers={blockers}
+                repoUrl={repoUrl}
+                selectedBlocker={selectedBlocker}
+                onSelectBlocker={(blocker) => {
+                  setSelectedBlocker(
+                    selectedBlocker?.id === blocker.id ? null : blocker
+                  );
+                  // Also highlight in graph
+                  if (blocker.file) setSelectedFile(blocker.file);
+                }}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No blockers found
+              </p>
+            )}
+          </TabsContent>
 
-              <TabsContent value="actions" className="mt-6">
-                {actions.length > 0 ? (
-                  <ActionList actions={actions} />
-                ) : (
-                  <p className="text-sm text-muted-foreground py-8 text-center">
-                    No actions yet
-                  </p>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Focused diagram sidebar */}
-          {selectedBlocker && mermaidCode && (
-            <div className="w-[400px] shrink-0">
-              <div className="sticky top-4 h-[calc(100vh-8rem)]">
-                <FocusedDiagram
-                  blocker={selectedBlocker}
-                  mermaidCode={mermaidCode}
-                  repoUrl={repoUrl}
-                  onClose={() => setSelectedBlocker(null)}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+          <TabsContent value="actions" className="mt-6">
+            {actions.length > 0 ? (
+              <ActionList actions={actions} />
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No actions yet
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

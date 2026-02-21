@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { analyses, repoCache } from "@/db/schema";
 import { getFileTree, getFileContent, getPackageJson } from "@/lib/github";
 import { createGeminiClient } from "@/lib/gemini";
-import { generateMermaidCode } from "@/lib/diagram";
 import {
   ValidationError,
   GitHubError,
@@ -59,6 +58,67 @@ function parseRepoUrl(url: string): ParsedRepo | ParseError {
 
 function isParseError(result: ParsedRepo | ParseError): result is ParseError {
   return "error" in result;
+}
+
+// Transform Gemini blocker output to frontend Blocker type
+function transformBlockers(blockers: Array<{
+  file: string;
+  line?: number;
+  description: string;
+  severity: string;
+}>) {
+  return blockers.map((b, i) => ({
+    id: `blocker-${i}`,
+    title: b.description.split(".")[0].slice(0, 80), // First sentence as title
+    description: b.description,
+    severity: b.severity as "low" | "medium" | "high" | "critical",
+    file: b.file,
+    line: b.line,
+    category: inferCategory(b.file, b.description),
+  }));
+}
+
+// Transform Gemini action output to frontend Action type
+function transformActions(actions: Array<{
+  type: string;
+  file: string;
+  description: string;
+  priority: number;
+}>) {
+  return actions.map((a, i) => ({
+    id: `action-${i}`,
+    title: a.description.split(".")[0].slice(0, 80),
+    description: a.description,
+    priority: a.priority,
+    effort: inferEffort(a.type, a.description),
+    impact: inferImpact(a.priority),
+    blockerIds: [],
+  }));
+}
+
+function inferCategory(file: string, desc: string): string {
+  const lower = desc.toLowerCase();
+  if (lower.includes("security") || lower.includes("vulnerab")) return "security";
+  if (lower.includes("performance") || lower.includes("slow")) return "performance";
+  if (lower.includes("test") || lower.includes("coverage")) return "testing";
+  if (lower.includes("deprecated") || lower.includes("outdated")) return "maintenance";
+  if (lower.includes("type") || lower.includes("any")) return "type-safety";
+  if (file.includes("config") || file.includes(".json")) return "configuration";
+  return "code-quality";
+}
+
+function inferEffort(type: string, desc: string): "small" | "medium" | "large" {
+  const lower = desc.toLowerCase();
+  if (type === "document" || lower.includes("comment")) return "small";
+  if (type === "refactor" || lower.includes("restructure")) return "large";
+  if (lower.includes("simple") || lower.includes("quick")) return "small";
+  return "medium";
+}
+
+function inferImpact(priority: number): "low" | "medium" | "high" {
+  if (priority <= 2) return "high";
+  if (priority <= 4) return "medium";
+  return "low";
 }
 
 export async function POST(req: NextRequest) {
@@ -168,39 +228,47 @@ export async function POST(req: NextRequest) {
 
     // 5. Run Gemini analysis
     let result;
+    let dependencyGraph;
     try {
       const gemini = createGeminiClient();
       const prompt = painPoint
         ? `Focus on: ${painPoint}`
         : "Analyze for technical debt, code quality, and architecture issues.";
 
-      result = await gemini.analyzeStructured(fileContents, prompt);
+      // Run both analyses in parallel
+      const [analysisResult, graphResult] = await Promise.all([
+        gemini.analyzeStructured(fileContents, prompt),
+        gemini.analyzeDependencyGraph(fileContents),
+      ]);
+
+      result = analysisResult;
+      dependencyGraph = graphResult;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       throw new AIError(`Analysis failed: ${msg}`);
     }
 
-    // 6. Generate mermaid diagram from dependencies
-    const mermaidCode = generateMermaidCode(
-      result.dependencies || [],
-      result.blockers || []
-    );
+    // 6. Transform and store analysis result
+    const transformedResult = {
+      blockers: transformBlockers(result.blockers || []),
+      actions: transformActions(result.actions || []),
+      summary: result.summary,
+      dependencyGraph,
+    };
 
-    // 7. Store analysis result
     const [inserted] = await db
       .insert(analyses)
       .values({
         repoUrl,
         painPoint,
         analysisType,
-        result: result as unknown as Record<string, unknown>,
-        mermaidCode: mermaidCode || null,
+        result: transformedResult as unknown as Record<string, unknown>,
       })
       .returning();
 
     return NextResponse.json({
       id: inserted.id,
-      result,
+      result: transformedResult,
       warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (err) {

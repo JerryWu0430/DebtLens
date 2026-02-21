@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnalysisProgress } from "@/components/streaming-indicator";
-import FaultyTerminal from "@/components/FaultyTerminal";
+
+const FaultyTerminal = dynamic(() => import("@/components/FaultyTerminal"), {
+  ssr: false,
+});
 
 type SubmitState = "idle" | "fetching" | "analyzing" | "generating" | "error";
 
