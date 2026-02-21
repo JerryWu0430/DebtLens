@@ -133,7 +133,7 @@ export function createGeminiClient(config?: GeminiConfig) {
   if (!apiKey) throw new Error("GEMINI_API_KEY required");
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = config?.model || "gemini-2.0-flash";
+  const model = config?.model || "gemini-2.5-flash";
 
   return {
     async *streamAnalysis(
