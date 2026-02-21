@@ -18,6 +18,7 @@ import {
   Check,
 } from "lucide-react";
 import { Blocker, Severity } from "@/types/analysis";
+import { renderWithInlineCode } from "@/components/inline-code";
 
 interface FilePreviewProps {
   file: string;
@@ -26,6 +27,7 @@ interface FilePreviewProps {
   blocker?: Blocker | null;
   onClose: () => void;
   onNavigate?: (file: string) => void;
+  onBlockerClick?: (blocker: Blocker) => void;
   dependencies?: string[];
   dependents?: string[];
 }
@@ -76,6 +78,7 @@ export function FilePreview({
   blocker,
   onClose,
   onNavigate,
+  onBlockerClick,
   dependencies = [],
   dependents = [],
 }: FilePreviewProps) {
@@ -229,13 +232,19 @@ export function FilePreview({
         </div>
 
         {blocker && (
-          <div className="mt-3 space-y-2 rounded border bg-muted/50 p-3">
+          <div
+            className="mt-3 space-y-2 rounded border border-border bg-[#161b22] p-3 cursor-pointer hover:bg-[#1c2128] transition-colors"
+            onClick={() => {
+              onBlockerClick?.(blocker);
+              onClose();
+            }}
+          >
             <div className="flex items-center gap-2">
               <SeverityBadge severity={blocker.severity} />
               <span className="text-sm font-medium">{blocker.title}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {blocker.description}
+              {renderWithInlineCode(blocker.description)}
             </p>
           </div>
         )}

@@ -157,6 +157,13 @@ function transformBlockers(blockers: Array<{
   line?: number;
   description: string;
   severity: string;
+  codeSnippets?: Array<{
+    file: string;
+    startLine: number;
+    endLine: number;
+    code: string;
+    explanation: string;
+  }>;
 }>) {
   return blockers.map((b, i) => ({
     id: `blocker-${i}`,
@@ -166,6 +173,7 @@ function transformBlockers(blockers: Array<{
     file: b.file,
     line: b.line,
     category: inferCategory(b.file, b.description),
+    codeSnippets: b.codeSnippets,
   }));
 }
 

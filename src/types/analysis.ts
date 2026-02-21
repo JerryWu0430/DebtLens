@@ -1,5 +1,13 @@
 export type Severity = "critical" | "high" | "medium" | "low";
 
+export interface CodeSnippet {
+  file: string;
+  startLine: number;
+  endLine: number;
+  code: string;
+  explanation: string;
+}
+
 export interface Blocker {
   id: string;
   title: string;
@@ -8,6 +16,7 @@ export interface Blocker {
   file?: string;
   line?: number;
   category: string;
+  codeSnippets?: CodeSnippet[]; // For critical/high blockers - evidence from code
 }
 
 export interface Action {

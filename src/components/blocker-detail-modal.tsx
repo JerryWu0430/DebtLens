@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { codeToHtml } from "shiki";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Blocker, Severity } from "@/types/analysis";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Blocker, Severity, CodeSnippet } from "@/types/analysis";
 import { FixSuggestionView } from "@/components/fix-suggestion-view";
 import { renderWithInlineCode } from "@/components/inline-code";
 import { FixSuggestion } from "@/types/fix-suggestion";
@@ -25,8 +27,73 @@ import {
   Lightbulb,
   XCircle,
   FileCode,
+  Code2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Code snippet display with syntax highlighting
+function CodeSnippetCard({ snippet, repoUrl }: { snippet: CodeSnippet; repoUrl: string }) {
+  const [highlightedHtml, setHighlightedHtml] = useState<string>("");
+
+  useEffect(() => {
+    async function highlight() {
+      try {
+        const ext = snippet.file.split(".").pop() || "ts";
+        const langMap: Record<string, string> = {
+          ts: "typescript",
+          tsx: "tsx",
+          js: "javascript",
+          jsx: "jsx",
+          json: "json",
+          css: "css",
+          py: "python",
+        };
+        const lang = langMap[ext] || "typescript";
+        const html = await codeToHtml(snippet.code, { lang, theme: "github-dark" });
+        setHighlightedHtml(html);
+      } catch {
+        setHighlightedHtml(`<pre>${snippet.code}</pre>`);
+      }
+    }
+    highlight();
+  }, [snippet]);
+
+  const codeBlockClass =
+    "text-xs overflow-x-auto [&_pre]:p-4 [&_pre]:m-0 [&_pre]:leading-tight [&_pre]:whitespace-pre [&_pre]:block bg-[#0d1117] min-w-0";
+
+  return (
+    <Card className="border-border bg-[#0d1117] min-w-0">
+      <CardHeader className="pb-2 min-w-0 bg-[#161b22]">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <CardTitle className="text-sm font-medium flex items-center gap-2 min-w-0 truncate">
+            <FileCode className="h-4 w-4 shrink-0" />
+            {snippet.file}
+          </CardTitle>
+          <a
+            href={`${repoUrl}/blob/main/${snippet.file}#L${snippet.startLine}-L${snippet.endLine}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1"
+          >
+            L{snippet.startLine}-{snippet.endLine}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0 space-y-0 min-w-0">
+        <div
+          className={codeBlockClass}
+          dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+        />
+        <div className="px-4 py-3 border-t border-border bg-[#161b22]">
+          <p className="text-xs text-muted-foreground">
+            {renderWithInlineCode(snippet.explanation)}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface BlockerDetailModalProps {
   blocker: Blocker | null;
@@ -214,6 +281,21 @@ export function BlockerDetailModal({
                       View on GitHub
                       <ExternalLink className="h-3 w-3" />
                     </a>
+                  </section>
+                )}
+
+                {/* Code Evidence - for critical/high blockers */}
+                {blocker.codeSnippets && blocker.codeSnippets.length > 0 && (
+                  <section>
+                    <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <Code2 className="h-4 w-4 text-muted-foreground" />
+                      Code Evidence ({blocker.codeSnippets.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {blocker.codeSnippets.map((snippet, idx) => (
+                        <CodeSnippetCard key={idx} snippet={snippet} repoUrl={repoUrl} />
+                      ))}
+                    </div>
                   </section>
                 )}
 

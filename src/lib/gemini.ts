@@ -110,6 +110,20 @@ const analysisSchema = {
           line: { type: Type.NUMBER },
           description: { type: Type.STRING },
           severity: { type: Type.STRING, enum: ["low", "medium", "high", "critical"] },
+          codeSnippets: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                file: { type: Type.STRING },
+                startLine: { type: Type.NUMBER },
+                endLine: { type: Type.NUMBER },
+                code: { type: Type.STRING },
+                explanation: { type: Type.STRING },
+              },
+              required: ["file", "startLine", "endLine", "code", "explanation"],
+            },
+          },
         },
         required: ["file", "description", "severity"],
       },
@@ -280,6 +294,13 @@ export function createGeminiClient(config?: GeminiConfig) {
       const fullPrompt = `Analyze the following codebase and identify blockers, dependencies, and recommended actions.
 
 ${prompt}
+
+IMPORTANT: For CRITICAL and HIGH severity blockers, you MUST include 'codeSnippets' - an array of code evidence from the files showing WHY this is a blocker. Each snippet should:
+- Reference the exact file and line numbers
+- Include the problematic code (5-15 lines typically)
+- Explain why this specific code is problematic
+
+For medium/low severity blockers, codeSnippets is optional.
 
 Files:
 ${filesContent}`;

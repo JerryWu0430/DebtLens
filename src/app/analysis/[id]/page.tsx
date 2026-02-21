@@ -282,6 +282,10 @@ export default function AnalysisPage() {
               blocker={blockers.find((b) => b.file === selectedFile)}
               onClose={() => setSelectedFile(null)}
               onNavigate={(path) => setSelectedFile(path)}
+              onBlockerClick={(blocker) => {
+                setSelectedBlocker(blocker);
+                setModalOpen(true);
+              }}
               dependencies={
                 dependencyGraph?.files
                   ?.find((f) => f.path === selectedFile)
