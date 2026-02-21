@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import mermaid from "mermaid";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { GitBranch, FileCode, X, ExternalLink } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import { Blocker } from "@/types/analysis";
+import { FilePreview } from "@/components/file-preview";
 
 interface FileDetails {
   id: string;
   label: string;
   file?: string;
+  line?: number;
   dependencies?: string[];
   dependents?: string[];
 }
@@ -65,11 +66,21 @@ export function DependencyDiagram({
         id: nodeId,
         label,
         file: blocker?.file || label,
+        line: blocker?.line,
         dependencies,
         dependents,
       };
     },
     [mermaidCode, blockers]
+  );
+
+  // Navigate to file from dependencies/dependents
+  const handleNavigate = useCallback(
+    (nodeId: string) => {
+      const info = parseNodeInfo(nodeId);
+      setSelectedNode(info);
+    },
+    [parseNodeInfo]
   );
 
   // Handle node click
@@ -185,128 +196,49 @@ export function DependencyDiagram({
     : null;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+    <div className="flex gap-4">
+      {/* Diagram */}
+      <Card className={selectedNode ? "flex-1" : "w-full"}>
+        <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base font-medium">
             <GitBranch className="h-4 w-4" />
             Dependency Graph
           </CardTitle>
-          {selectedNode && (
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="rounded p-1 hover:bg-muted"
-              aria-label="Close details"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error ? (
-          <div className="rounded border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
-          </div>
-        ) : (
-          <>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error ? (
+            <div className="rounded border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+              {error}
+            </div>
+          ) : (
             <div
               ref={containerRef}
               className="overflow-auto rounded border bg-muted/30 p-4"
             />
+          )}
+          <p className="text-xs text-muted-foreground">
+            Click on a node to preview file
+          </p>
+        </CardContent>
+      </Card>
 
-            {selectedNode && (
-              <div className="space-y-3 rounded border bg-card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <FileCode className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{selectedNode.label}</span>
-                  </div>
-                  {repoUrl && selectedNode.file && (
-                    <a
-                      href={`${repoUrl}/blob/main/${selectedNode.file}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      View file
-                      <ExternalLink className="ml-1 h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-
-                {nodeBlocker && (
-                  <div className="space-y-1">
-                    <Badge
-                      className={
-                        nodeBlocker.severity === "critical"
-                          ? "bg-red-500"
-                          : nodeBlocker.severity === "high"
-                            ? "bg-orange-500"
-                            : nodeBlocker.severity === "medium"
-                              ? "bg-yellow-500"
-                              : "bg-blue-500"
-                      }
-                    >
-                      {nodeBlocker.severity}
-                    </Badge>
-                    <p className="text-sm text-muted-foreground">
-                      {nodeBlocker.description}
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid gap-2 text-xs sm:grid-cols-2">
-                  {selectedNode.dependencies &&
-                    selectedNode.dependencies.length > 0 && (
-                      <div>
-                        <span className="font-medium text-muted-foreground">
-                          Depends on:
-                        </span>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {selectedNode.dependencies.map((dep) => (
-                            <Badge
-                              key={dep}
-                              variant="outline"
-                              className="cursor-pointer"
-                              onClick={() => handleNodeClick(dep)}
-                            >
-                              {dep}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  {selectedNode.dependents &&
-                    selectedNode.dependents.length > 0 && (
-                      <div>
-                        <span className="font-medium text-muted-foreground">
-                          Used by:
-                        </span>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {selectedNode.dependents.map((dep) => (
-                            <Badge
-                              key={dep}
-                              variant="outline"
-                              className="cursor-pointer"
-                              onClick={() => handleNodeClick(dep)}
-                            >
-                              {dep}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        <p className="text-xs text-muted-foreground">
-          Click on a node to see file details and relationships
-        </p>
-      </CardContent>
-    </Card>
+      {/* File Preview Panel */}
+      {selectedNode && selectedNode.file && repoUrl && (
+        <div className="w-[480px] shrink-0">
+          <div className="sticky top-4 h-[600px]">
+            <FilePreview
+              file={selectedNode.file}
+              line={selectedNode.line}
+              repoUrl={repoUrl}
+              blocker={nodeBlocker}
+              onClose={() => setSelectedNode(null)}
+              onNavigate={handleNavigate}
+              dependencies={selectedNode.dependencies}
+              dependents={selectedNode.dependents}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -43,13 +43,50 @@ export function ActionSkeleton() {
   );
 }
 
+export function DiagramSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <Skeleton className="h-5 w-40" />
+      </CardHeader>
+      <CardContent>
+        <div className="flex h-64 items-center justify-center">
+          <div className="space-y-4 text-center">
+            <div className="flex justify-center gap-8">
+              <Skeleton className="h-12 w-24 rounded-lg" />
+              <Skeleton className="h-12 w-24 rounded-lg" />
+              <Skeleton className="h-12 w-24 rounded-lg" />
+            </div>
+            <div className="flex justify-center gap-4">
+              <Skeleton className="h-0.5 w-16" />
+              <Skeleton className="h-0.5 w-16" />
+            </div>
+            <div className="flex justify-center gap-12">
+              <Skeleton className="h-10 w-20 rounded-lg" />
+              <Skeleton className="h-10 w-20 rounded-lg" />
+              <Skeleton className="h-10 w-20 rounded-lg" />
+              <Skeleton className="h-10 w-20 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AnalysisSkeleton() {
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-4 w-96" />
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-16" />
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </div>
       </div>
+
+      <DiagramSkeleton />
+
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-4">
           <Skeleton className="h-6 w-32" />
