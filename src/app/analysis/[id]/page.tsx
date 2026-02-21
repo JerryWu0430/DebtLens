@@ -7,8 +7,9 @@ import { ActionList } from "@/components/action-list";
 import { DependencyDiagram } from "@/components/dependency-diagram";
 import { AnalysisSkeleton } from "@/components/analysis-skeleton";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisResult, Blocker, Action } from "@/types/analysis";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, AlertTriangle, Zap } from "lucide-react";
 import Link from "next/link";
 
 type StreamingState = "idle" | "loading" | "streaming" | "complete" | "error";
@@ -116,39 +117,48 @@ export default function AnalysisPage() {
           </section>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold">
+        <Tabs defaultValue="blockers" className="w-full">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="blockers" className="gap-2">
+              <AlertTriangle className="h-4 w-4" />
               Blockers
               {blockers.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({blockers.length})
+                <span className="ml-1 rounded-full bg-destructive/20 px-2 py-0.5 text-xs text-destructive">
+                  {blockers.length}
                 </span>
               )}
-            </h2>
+            </TabsTrigger>
+            <TabsTrigger value="actions" className="gap-2">
+              <Zap className="h-4 w-4" />
+              Actions
+              {actions.length > 0 && (
+                <span className="ml-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs">
+                  {actions.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="blockers" className="mt-6">
             {blockers.length > 0 ? (
               <BlockerList blockers={blockers} />
             ) : (
-              <p className="text-sm text-muted-foreground">No blockers found</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No blockers found
+              </p>
             )}
-          </section>
+          </TabsContent>
 
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold">
-              Recommended Actions
-              {actions.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({actions.length})
-                </span>
-              )}
-            </h2>
+          <TabsContent value="actions" className="mt-6">
             {actions.length > 0 ? (
               <ActionList actions={actions} />
             ) : (
-              <p className="text-sm text-muted-foreground">No actions yet</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No actions yet
+              </p>
             )}
-          </section>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

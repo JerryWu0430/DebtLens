@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -43,65 +41,71 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
-      <main className="w-full max-w-xl space-y-8">
+      <main className="w-full max-w-2xl space-y-8">
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">DebtLens</h1>
           <p className="text-muted-foreground">
-            Analyze technical debt in your codebase
+            Turn fuzzy tech debt into concrete action items
           </p>
         </div>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="repo-url" className="text-sm font-medium">
-              GitHub Repository URL
-            </label>
-            <Input
-              id="repo-url"
-              type="url"
-              placeholder="https://github.com/owner/repo"
-              value={repoUrl}
-              onChange={(e) => setRepoUrl(e.target.value)}
-            />
+        <div className="rounded-lg border border-border bg-gray-1000/50 font-mono text-sm overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
+            <div className="w-3 h-3 rounded-full bg-red-500/80" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+            <div className="w-3 h-3 rounded-full bg-green-500/80" />
+            <span className="ml-2 text-xs text-muted-foreground">terminal</span>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="pain-points" className="text-sm font-medium">
-              Pain Points{" "}
-              <span className="text-muted-foreground font-normal">
-                (optional)
-              </span>
-            </label>
-            <Textarea
-              id="pain-points"
-              placeholder="Describe areas of concern, slow features, or specific files you want analyzed..."
-              rows={4}
-              value={painPoints}
-              onChange={(e) => setPainPoints(e.target.value)}
-            />
-          </div>
+          <div className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-green-400">$</span>
+              <span className="text-muted-foreground">git clone</span>
+              <input
+                type="text"
+                value={repoUrl}
+                onChange={(e) => setRepoUrl(e.target.value)}
+                placeholder="https://github.com/owner/repo"
+                className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50"
+              />
+            </div>
 
-          {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={handleAnalyze}
-            disabled={!isValid || loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analyzing…
-              </>
-            ) : (
-              "Analyze Repository"
-            )}
-          </Button>
+            <div className="flex items-start gap-2">
+              <span className="text-green-400">$</span>
+              <span className="text-muted-foreground whitespace-nowrap">echo &quot;</span>
+              <textarea
+                value={painPoints}
+                onChange={(e) => setPainPoints(e.target.value)}
+                placeholder="describe your pain points... (optional)"
+                rows={3}
+                className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50 resize-none"
+              />
+              <span className="text-muted-foreground">&quot;</span>
+            </div>
+          </div>
         </div>
+
+        {error && (
+          <p className="text-sm text-destructive font-mono" role="alert">
+            error: {error}
+          </p>
+        )}
+
+        <Button
+          className="w-full font-mono"
+          size="lg"
+          onClick={handleAnalyze}
+          disabled={!isValid || loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              analyzing...
+            </>
+          ) : (
+            "$ run debtlens --analyze"
+          )}
+        </Button>
       </main>
     </div>
   );
