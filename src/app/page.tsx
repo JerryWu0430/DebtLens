@@ -77,11 +77,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
-      <main className="w-full max-w-xl space-y-8">
+      <main className="w-full max-w-2xl space-y-8">
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">DebtLens</h1>
           <p className="text-muted-foreground">
-            Analyze technical debt in your codebase
+            Turn fuzzy tech debt into concrete action items
           </p>
         </div>
 
