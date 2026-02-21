@@ -65,44 +65,47 @@ function CodeDiff({ change }: { change: CodeChange }) {
     highlight();
   }, [change]);
 
+  const codeBlockClass =
+    "text-xs overflow-x-auto [&_pre]:p-4 [&_pre]:m-0 [&_pre]:leading-5 [&_pre]:whitespace-pre [&_pre]:block bg-[#0d1117] min-w-0";
+
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <FileCode className="h-4 w-4" />
+    <Card className="border-border min-w-0">
+      <CardHeader className="pb-2 min-w-0">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <CardTitle className="text-sm font-medium flex items-center gap-2 min-w-0 truncate">
+            <FileCode className="h-4 w-4 shrink-0" />
             {change.file}
           </CardTitle>
-          <code className="text-xs text-muted-foreground">
+          <code className="text-xs text-muted-foreground shrink-0">
             L{change.startLine}-{change.endLine}
           </code>
         </div>
       </CardHeader>
-      <CardContent className="p-0 space-y-0">
-        <p className="text-sm text-muted-foreground px-4 pb-3">
+      <CardContent className="p-0 space-y-0 min-w-0">
+        <p className="text-sm text-muted-foreground px-4 pb-3 break-words min-w-0">
           {change.explanation}
         </p>
 
         {/* Original */}
-        <div className="border-t">
+        <div className="border-t border-border">
           <div className="px-4 py-2 text-xs font-medium text-red-400 bg-red-500/5 flex items-center gap-2">
-            <span className="w-5 h-5 rounded flex items-center justify-center bg-red-500/20">−</span>
+            <span className="w-5 h-5 rounded flex items-center justify-center bg-red-500/20 shrink-0">−</span>
             Original
           </div>
           <div
-            className="text-xs overflow-x-auto [&_pre]:p-4 [&_pre]:m-0 bg-[#0d1117]"
+            className={codeBlockClass}
             dangerouslySetInnerHTML={{ __html: originalHtml }}
           />
         </div>
 
         {/* Suggested */}
-        <div className="border-t">
+        <div className="border-t border-border">
           <div className="px-4 py-2 text-xs font-medium text-green-400 bg-green-500/5 flex items-center gap-2">
-            <span className="w-5 h-5 rounded flex items-center justify-center bg-green-500/20">+</span>
+            <span className="w-5 h-5 rounded flex items-center justify-center bg-green-500/20 shrink-0">+</span>
             Suggested
           </div>
           <div
-            className="text-xs overflow-x-auto [&_pre]:p-4 [&_pre]:m-0 bg-[#0d1117]"
+            className={codeBlockClass}
             dangerouslySetInnerHTML={{ __html: suggestedHtml }}
           />
         </div>
@@ -113,7 +116,7 @@ function CodeDiff({ change }: { change: CodeChange }) {
 
 function PackageUpdateCard({ update }: { update: PackageUpdate }) {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+    <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30">
       <Package className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
@@ -141,10 +144,10 @@ export function FixSuggestionView({ suggestion }: FixSuggestionViewProps) {
   const effort = effortConfig[suggestion.effort];
 
   return (
-    <div className="space-y-6">
-      {/* Summary */}
-      <section>
-        <div className="flex items-center gap-3 mb-3">
+    <div className="space-y-6 min-w-0">
+      {/* Summary - allow wrapping so long text isn't truncated */}
+      <section className="min-w-0">
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
           <Badge variant="outline" className={cn("gap-1", confidence.color)}>
             <Gauge className="h-3 w-3" />
             {confidence.label} confidence
@@ -154,10 +157,10 @@ export function FixSuggestionView({ suggestion }: FixSuggestionViewProps) {
             {effort.label} effort
           </span>
         </div>
-        <div className="p-4 rounded-lg bg-muted/50 border">
-          <div className="flex items-start gap-2">
+        <div className="p-4 rounded-lg bg-muted/50 border border-border min-w-0">
+          <div className="flex items-start gap-2 min-w-0">
             <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-400 shrink-0" />
-            <p className="text-sm">{suggestion.summary}</p>
+            <p className="text-sm break-words min-w-0">{suggestion.summary}</p>
           </div>
         </div>
       </section>
@@ -219,7 +222,7 @@ export function FixSuggestionView({ suggestion }: FixSuggestionViewProps) {
       {/* Empty state */}
       {suggestion.codeChanges.length === 0 &&
         suggestion.packageUpdates.length === 0 && (
-          <div className="p-6 rounded-lg border border-dashed text-center">
+          <div className="p-6 rounded-lg border border-dashed border-border text-center">
             <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               No specific code changes suggested. Review the summary above for

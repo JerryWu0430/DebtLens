@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Blocker, Severity } from "@/types/analysis";
 import { FixSuggestionView } from "@/components/fix-suggestion-view";
 import { FixSuggestion } from "@/types/fix-suggestion";
@@ -123,10 +122,10 @@ export function BlockerDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 border border-border">
+      <DialogContent className="max-w-4xl w-[90vw] h-[90vh] max-h-[90vh] flex flex-col p-0 gap-0 border border-border overflow-hidden">
         {viewMode === "suggestion" && suggestion ? (
           <>
-            <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
+            <DialogHeader className="px-6 pr-10 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -143,16 +142,16 @@ export function BlockerDetailModal({
                 </DialogTitle>
               </div>
             </DialogHeader>
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="p-6">
+            <div className="flex-1 min-h-0 overflow-auto">
+              <div className="p-6 min-w-0">
                 <FixSuggestionView suggestion={suggestion} />
               </div>
-            </ScrollArea>
+            </div>
           </>
         ) : (
           <>
-            {/* Header */}
-            <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
+            {/* Header - pr-10 reserves space for dialog close (X) button */}
+            <DialogHeader className="px-6 pr-10 py-4 border-b border-border shrink-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className={cn("p-2 rounded-lg shrink-0", config.bgColor)}>
@@ -185,8 +184,8 @@ export function BlockerDetailModal({
             </DialogHeader>
 
             {/* Content */}
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="p-6 space-y-6">
+            <div className="flex-1 min-h-0 overflow-auto">
+              <div className="p-6 space-y-6 min-w-0">
                 {/* Description */}
                 <section>
                   <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
@@ -224,7 +223,7 @@ export function BlockerDetailModal({
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Footer */}
             <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
