@@ -4,6 +4,27 @@ type FetchOptions = {
   token?: string;
 };
 
+export type GitHubErrorCode =
+  | "RATE_LIMITED"
+  | "NOT_FOUND"
+  | "PRIVATE_REPO"
+  | "NETWORK_ERROR"
+  | "UNKNOWN";
+
+export class GitHubError extends Error {
+  code: GitHubErrorCode;
+  status?: number;
+  resetAt?: Date;
+
+  constructor(code: GitHubErrorCode, message: string, status?: number, resetAt?: Date) {
+    super(message);
+    this.name = "GitHubError";
+    this.code = code;
+    this.status = status;
+    this.resetAt = resetAt;
+  }
+}
+
 function getHeaders(token?: string): HeadersInit {
   const headers: HeadersInit = {
     Accept: "application/vnd.github.v3+json",
@@ -16,13 +37,54 @@ function getHeaders(token?: string): HeadersInit {
 }
 
 async function githubFetch<T>(path: string, opts?: FetchOptions): Promise<T> {
-  const res = await fetch(`${GITHUB_API}${path}`, {
-    headers: getHeaders(opts?.token),
-  });
-  if (!res.ok) {
-    throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
+  let res: Response;
+  try {
+    res = await fetch(`${GITHUB_API}${path}`, {
+      headers: getHeaders(opts?.token),
+    });
+  } catch (err) {
+    throw new GitHubError(
+      "NETWORK_ERROR",
+      "Failed to connect to GitHub API",
+      undefined
+    );
   }
-  return res.json();
+
+  if (res.ok) {
+    return res.json();
+  }
+
+  // Rate limit
+  if (res.status === 403) {
+    const remaining = res.headers.get("x-ratelimit-remaining");
+    const resetHeader = res.headers.get("x-ratelimit-reset");
+    if (remaining === "0" && resetHeader) {
+      const resetAt = new Date(parseInt(resetHeader, 10) * 1000);
+      throw new GitHubError(
+        "RATE_LIMITED",
+        `GitHub API rate limit exceeded. Resets at ${resetAt.toLocaleTimeString()}`,
+        403,
+        resetAt
+      );
+    }
+    // 403 without rate limit = likely private repo
+    throw new GitHubError(
+      "PRIVATE_REPO",
+      "Repository is private or access denied. Provide a GitHub token.",
+      403
+    );
+  }
+
+  // Not found
+  if (res.status === 404) {
+    throw new GitHubError(
+      "NOT_FOUND",
+      "Repository not found. Check the URL and ensure the repo exists.",
+      404
+    );
+  }
+
+  throw new GitHubError("UNKNOWN", `GitHub API error: ${res.status}`, res.status);
 }
 
 export type TreeItem = {
@@ -39,6 +101,12 @@ export type GitTree = {
   url: string;
   tree: TreeItem[];
   truncated: boolean;
+};
+
+export type RepoMetadata = {
+  truncated: boolean;
+  fileCount: number;
+  warning?: string;
 };
 
 export async function getFileTree(

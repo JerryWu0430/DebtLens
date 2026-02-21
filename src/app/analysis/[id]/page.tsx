@@ -6,13 +6,28 @@ import { BlockerList } from "@/components/blocker-card";
 import { ActionList } from "@/components/action-list";
 import { DependencyDiagram } from "@/components/dependency-diagram";
 import { AnalysisSkeleton } from "@/components/analysis-skeleton";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisResult, Blocker, Action } from "@/types/analysis";
-import { ArrowLeft, ExternalLink, Loader2, AlertTriangle, Zap } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Loader2,
+  AlertCircle,
+  AlertTriangle,
+  RefreshCw,
+  Zap,
+} from "lucide-react";
 import Link from "next/link";
 
 type StreamingState = "idle" | "loading" | "streaming" | "complete" | "error";
+
+interface ApiError {
+  error: string;
+  code?: string;
+}
 
 export default function AnalysisPage() {
   const params = useParams();
@@ -23,30 +38,46 @@ export default function AnalysisPage() {
   const [actions, setActions] = useState<Action[]>([]);
   const [repoUrl, setRepoUrl] = useState<string>("");
   const [mermaidCode, setMermaidCode] = useState<string>("");
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState<ApiError | null>(null);
+
+  const fetchAnalysis = async () => {
+    setState("loading");
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/analysis/${id}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw {
+          error: data.error || "Failed to load analysis",
+          code: data.code,
+        };
+      }
+
+      const result = data as AnalysisResult;
+      setRepoUrl(result.repoUrl);
+      setBlockers(result.blockers);
+      setActions(result.actions);
+      if (result.mermaidCode) {
+        setMermaidCode(result.mermaidCode);
+      }
+      setState("complete");
+    } catch (err) {
+      if (err && typeof err === "object" && "error" in err) {
+        setError(err as ApiError);
+      } else {
+        setError({
+          error: err instanceof Error ? err.message : "Failed to load",
+        });
+      }
+      setState("error");
+    }
+  };
 
   useEffect(() => {
-    async function fetchAnalysis() {
-      try {
-        const res = await fetch(`/api/analysis/${id}`);
-        if (!res.ok) {
-          throw new Error("Analysis not found");
-        }
-        const data: AnalysisResult = await res.json();
-        setRepoUrl(data.repoUrl);
-        setBlockers(data.blockers);
-        setActions(data.actions);
-        if (data.mermaidCode) {
-          setMermaidCode(data.mermaidCode);
-        }
-        setState("complete");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load");
-        setState("error");
-      }
-    }
-
     fetchAnalysis();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (state === "loading") {
@@ -59,16 +90,39 @@ export default function AnalysisPage() {
     );
   }
 
-  if (state === "error") {
+  if (state === "error" && error) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-        <p className="text-destructive">{error}</p>
-        <Button asChild variant="outline">
-          <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Link>
-        </Button>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="rounded-full bg-destructive/10 p-4">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+          </div>
+          <h1 className="text-xl font-semibold">
+            {error.code === "NOT_FOUND"
+              ? "Analysis not found"
+              : "Failed to load analysis"}
+          </h1>
+          <p className="max-w-md text-muted-foreground">{error.error}</p>
+          {error.code && (
+            <code className="text-xs text-muted-foreground">
+              Code: {error.code}
+            </code>
+          )}
+        </div>
+        <div className="flex gap-3">
+          {error.code !== "NOT_FOUND" && (
+            <Button onClick={fetchAnalysis} variant="outline">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          )}
+          <Button asChild>
+            <Link href="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              New Analysis
+            </Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -109,11 +163,22 @@ export default function AnalysisPage() {
 
         {mermaidCode && (
           <section>
-            <DependencyDiagram
-              mermaidCode={mermaidCode}
-              blockers={blockers}
-              repoUrl={repoUrl}
-            />
+            <ErrorBoundary
+              fallback={
+                <Card className="border-destructive/30">
+                  <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    Failed to render dependency diagram
+                  </CardContent>
+                </Card>
+              }
+            >
+              <DependencyDiagram
+                mermaidCode={mermaidCode}
+                blockers={blockers}
+                repoUrl={repoUrl}
+              />
+            </ErrorBoundary>
           </section>
         )}
 
