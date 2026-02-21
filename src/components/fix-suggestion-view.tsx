@@ -3,9 +3,12 @@
 import { useState, useEffect } from "react";
 import { codeToHtml } from "shiki";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { renderWithInlineCode } from "@/components/inline-code";
 import { FixSuggestion, CodeChange, PackageUpdate } from "@/types/fix-suggestion";
+import { Blocker } from "@/types/analysis";
+import { GitHubTokenInput, getGitHubToken } from "@/components/github-token-input";
 import {
   FileCode,
   Package,
@@ -14,11 +17,16 @@ import {
   Gauge,
   Clock,
   CheckCircle2,
+  GitPullRequest,
+  Loader2,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FixSuggestionViewProps {
   suggestion: FixSuggestion;
+  repoUrl?: string;
+  blocker?: Blocker;
 }
 
 const confidenceConfig = {
@@ -140,12 +148,64 @@ function PackageUpdateCard({ update }: { update: PackageUpdate }) {
   );
 }
 
-export function FixSuggestionView({ suggestion }: FixSuggestionViewProps) {
+type PRState = "idle" | "loading" | "success" | "error" | "no-token";
+
+export function FixSuggestionView({ suggestion, repoUrl, blocker }: FixSuggestionViewProps) {
   const confidence = confidenceConfig[suggestion.confidence];
   const effort = effortConfig[suggestion.effort];
 
+  const [prState, setPrState] = useState<PRState>("idle");
+  const [prUrl, setPrUrl] = useState<string | null>(null);
+  const [prError, setPrError] = useState<string | null>(null);
+  const [tokenModalOpen, setTokenModalOpen] = useState(false);
+
+  const canCreatePR = repoUrl && blocker && suggestion.codeChanges.length > 0;
+
+  const handleCreatePR = async () => {
+    const token = getGitHubToken();
+    if (!token) {
+      setPrState("no-token");
+      setTokenModalOpen(true);
+      return;
+    }
+
+    setPrState("loading");
+    setPrError(null);
+
+    try {
+      const res = await fetch("/api/create-pr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoUrl, suggestion, blocker, token }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create PR");
+      }
+
+      setPrUrl(data.prUrl);
+      setPrState("success");
+    } catch (err) {
+      setPrError(err instanceof Error ? err.message : "Failed to create PR");
+      setPrState("error");
+    }
+  };
+
+  const handleTokenSaved = () => {
+    setPrState("idle");
+  };
+
   return (
     <div className="space-y-6 min-w-0">
+      {/* Token Modal */}
+      <GitHubTokenInput
+        open={tokenModalOpen}
+        onOpenChange={setTokenModalOpen}
+        onTokenSaved={handleTokenSaved}
+      />
+
       {/* Summary - allow wrapping so long text isn't truncated */}
       <section className="min-w-0">
         <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -217,6 +277,59 @@ export function FixSuggestionView({ suggestion }: FixSuggestionViewProps) {
               </a>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Create PR Section */}
+      {canCreatePR && (
+        <section className="pt-4 border-t border-border">
+          {prState === "success" && prUrl ? (
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+              <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-green-400">PR Created</p>
+                <a
+                  href={prUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                >
+                  View on GitHub
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+          ) : prState === "error" ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {prError}
+              </div>
+              <Button onClick={handleCreatePR} className="w-full">
+                <GitPullRequest className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          ) : prState === "no-token" ? (
+            <Button onClick={() => setTokenModalOpen(true)} variant="outline" className="w-full">
+              <Key className="h-4 w-4 mr-2" />
+              Set GitHub Token to Create PR
+            </Button>
+          ) : (
+            <Button onClick={handleCreatePR} disabled={prState === "loading"} className="w-full">
+              {prState === "loading" ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating PR...
+                </>
+              ) : (
+                <>
+                  <GitPullRequest className="h-4 w-4 mr-2" />
+                  Create Pull Request
+                </>
+              )}
+            </Button>
+          )}
         </section>
       )}
 

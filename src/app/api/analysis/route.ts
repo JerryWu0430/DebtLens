@@ -197,10 +197,15 @@ function transformActions(actions: Array<{
 
 function inferCategory(file: string, desc: string): string {
   const lower = desc.toLowerCase();
+  // New categories for structural issues
+  if (lower.includes("circular") || lower.includes("cycle") || lower.includes("cyclic")) return "circular-coupling";
+  if (lower.includes("duplicate") || lower.includes("duplicated") || lower.includes("redundant") || lower.includes("similar implementation")) return "duplicate-workflow";
+  if (lower.includes("outdated") || lower.includes("old version") || lower.includes("update available") || lower.includes("deprecated package")) return "outdated-package";
+  // Existing categories
   if (lower.includes("security") || lower.includes("vulnerab")) return "security";
   if (lower.includes("performance") || lower.includes("slow")) return "performance";
   if (lower.includes("test") || lower.includes("coverage")) return "testing";
-  if (lower.includes("deprecated") || lower.includes("outdated")) return "maintenance";
+  if (lower.includes("deprecated") || lower.includes("legacy")) return "maintenance";
   if (lower.includes("type") || lower.includes("any")) return "type-safety";
   if (file.includes("config") || file.includes(".json")) return "configuration";
   return "code-quality";
