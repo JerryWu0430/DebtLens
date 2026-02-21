@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { BlockerList } from "@/components/blocker-card";
 import { ActionList } from "@/components/action-list";
+import { DependencyDiagram } from "@/components/dependency-diagram";
 import { AnalysisSkeleton } from "@/components/analysis-skeleton";
 import { Button } from "@/components/ui/button";
 import { AnalysisResult, Blocker, Action } from "@/types/analysis";
@@ -20,6 +21,7 @@ export default function AnalysisPage() {
   const [blockers, setBlockers] = useState<Blocker[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
   const [repoUrl, setRepoUrl] = useState<string>("");
+  const [mermaidCode, setMermaidCode] = useState<string>("");
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
@@ -33,6 +35,9 @@ export default function AnalysisPage() {
         setRepoUrl(data.repoUrl);
         setBlockers(data.blockers);
         setActions(data.actions);
+        if (data.mermaidCode) {
+          setMermaidCode(data.mermaidCode);
+        }
         setState("complete");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load");
@@ -100,6 +105,16 @@ export default function AnalysisPage() {
             )}
           </div>
         </header>
+
+        {mermaidCode && (
+          <section>
+            <DependencyDiagram
+              mermaidCode={mermaidCode}
+              blockers={blockers}
+              repoUrl={repoUrl}
+            />
+          </section>
+        )}
 
         <div className="grid gap-8 lg:grid-cols-2">
           <section className="space-y-4">
