@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnalysisProgress } from "@/components/streaming-indicator";
+import FaultyTerminal from "@/components/FaultyTerminal";
 
 type SubmitState = "idle" | "fetching" | "analyzing" | "generating" | "error";
 
@@ -73,11 +74,31 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8">
-      <main className="w-full max-w-2xl space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">DebtLens</h1>
-          <p className="text-muted-foreground">
+    <div className="relative min-h-screen flex flex-col items-center justify-center p-8">
+      {/* Faulty terminal CRT background */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <FaultyTerminal
+          className="w-full h-full"
+          scale={1.2}
+          brightness={0.2}
+          scanlineIntensity={0.5}
+          pageLoadAnimation={true}
+          mouseReact={true}
+          mouseStrength={0.15}
+        />
+      </div>
+
+      <main className="relative z-10 w-full max-w-2xl space-y-8">
+        <div className="text-center space-y-4">
+          <pre className="text-[0.6rem] sm:text-[0.75rem] md:text-sm lg:text-base leading-none font-mono text-primary select-none">
+{`██████╗ ███████╗██████╗ ████████╗██╗     ███████╗███╗   ██╗███████╗
+██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██║     ██╔════╝████╗  ██║██╔════╝
+██║  ██║█████╗  ██████╔╝   ██║   ██║     █████╗  ██╔██╗ ██║███████╗
+██║  ██║██╔══╝  ██╔══██╗   ██║   ██║     ██╔══╝  ██║╚██╗██║╚════██║
+██████╔╝███████╗██████╔╝   ██║   ███████╗███████╗██║ ╚████║███████║
+╚═════╝ ╚══════╝╚═════╝    ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═══╝╚══════╝`}
+          </pre>
+          <p className="text-muted-foreground font-mono">
             Turn fuzzy tech debt into concrete action items
           </p>
         </div>
