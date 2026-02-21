@@ -295,6 +295,27 @@ export function createGeminiClient(config?: GeminiConfig) {
 
 ${prompt}
 
+CRITICAL DETECTION REQUIREMENTS - You MUST actively look for these patterns:
+
+1. CIRCULAR DEPENDENCIES (circular-coupling):
+   - Files that import each other directly or transitively (A→B→A or A→B→C→A)
+   - Mark as HIGH severity - causes build issues, unpredictable initialization
+   - Include both files in codeSnippets showing the circular import statements
+
+2. DUPLICATE WORKFLOWS (duplicate-workflow):
+   - Multiple files implementing the same logic with different names
+   - Similar functions across files (e.g., formatDate vs dateToString doing the same thing)
+   - Redundant utility implementations
+   - Mark as MEDIUM severity - causes maintenance burden, inconsistency risk
+   - Include examples from both duplicate files in codeSnippets
+
+3. OUTDATED PACKAGES (outdated-package):
+   - Check package.json for significantly outdated dependencies
+   - Look for packages with major version gaps (e.g., lodash@3.x when 4.x exists)
+   - Deprecated packages still in use
+   - Mark as MEDIUM-HIGH severity depending on security implications
+   - Reference package.json in the blocker
+
 IMPORTANT: For CRITICAL and HIGH severity blockers, you MUST include 'codeSnippets' - an array of code evidence from the files showing WHY this is a blocker. Each snippet should:
 - Reference the exact file and line numbers
 - Include the problematic code (5-15 lines typically)
@@ -372,13 +393,21 @@ ${filesContent}`;
    - 'isDynamic': true if dynamic import()
 3. List exported symbols
 4. Estimate metrics (lines, cyclomatic complexity 1-10)
-5. Note any issues (unused imports, circular refs, etc)
+5. Note any issues - BE THOROUGH about detecting:
+   - CIRCULAR IMPORTS: Files importing each other (A↔B or A→B→C→A)
+   - DUPLICATE CODE: Similar utilities/functions across multiple files
+   - Unused imports or exports
+   - High coupling between unrelated modules
 
 Then identify:
-- circularDeps: arrays of file paths forming import cycles
+- circularDeps: arrays of file paths forming import cycles (CRITICAL - must detect all cycles!)
 - entryPoints: files nothing imports (app entry, pages)
 - orphans: files with no imports AND nothing imports them
 - clusters: group files by feature/domain (auth, api, components, etc)
+  - Note: low cohesion in a cluster often indicates duplicate implementations
+
+IMPORTANT: Pay special attention to files with similar names or similar function exports.
+Look for duplicate implementations like: formatDate/dateToString, parseUrl/urlParser, etc.
 
 Max import depth: ${MAX_DEPTH} levels.
 Only include internal project files, skip external packages.
