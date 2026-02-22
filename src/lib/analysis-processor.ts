@@ -1,9 +1,15 @@
-import { getDefaultAnalysisState, AnalysisState } from "@/hooks/use-analysis-state";
+
 
 export interface AnalysisData {
   id: string;
   score: number;
   items: string[];
+}
+
+export interface AnalysisState {
+  data: AnalysisData;
+  isLoading?: boolean;
+  error?: Error | null;
 }
 
 export function processAnalysisData(raw: unknown): AnalysisData {
@@ -26,9 +32,17 @@ export function createEmptyAnalysis(): AnalysisData {
 export function mergeAnalysisState(
   current: AnalysisState,
   newData: Partial<AnalysisData>
-): AnalysisState {
-  const base = current.data || createEmptyAnalysis();
+export function getDefaultAnalysisState(): AnalysisState {
   return {
+    data: createEmptyAnalysis(),
+    isLoading: false,
+    error: null
+  };
+}
+
+export function resetToDefault(): AnalysisState {
+  return getDefaultAnalysisState();
+}
     ...current,
     data: { ...base, ...newData },
   };
