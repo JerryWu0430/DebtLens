@@ -1,57 +1,8 @@
-import { GitHubError } from "./github";
+import { GitHubError, githubFetch } from "./github";
 
-const GITHUB_API = "https://api.github.com";
-
-function getHeaders(token: string): HeadersInit {
-  return {
-    Accept: "application/vnd.github.v3+json",
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-}
-
-async function githubWriteFetch<T>(
-  path: string,
-  token: string,
-  options: { method: string; body?: unknown }
-): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(`${GITHUB_API}${path}`, {
-      method: options.method,
-      headers: getHeaders(token),
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    });
-  } catch {
-    throw new GitHubError("NETWORK_ERROR", "Failed to connect to GitHub API");
-  }
-
-  if (res.ok) {
-    return res.json();
-  }
-
-  if (res.status === 401) {
-    throw new GitHubError("PRIVATE_REPO", "Invalid or expired GitHub token", 401);
-  }
-
-  if (res.status === 403) {
-    const remaining = res.headers.get("x-ratelimit-remaining");
-    if (remaining === "0") {
-      throw new GitHubError("RATE_LIMITED", "GitHub API rate limit exceeded", 403);
-    }
-    throw new GitHubError("PRIVATE_REPO", "Token lacks required permissions (needs 'repo' scope)", 403);
-  }
-
-  if (res.status === 404) {
-    throw new GitHubError("NOT_FOUND", "Resource not found", 404);
-  }
-
-  if (res.status === 422) {
-    const data = await res.json().catch(() => ({}));
-    throw new GitHubError("UNKNOWN", data.message || "Validation failed", 422);
-  }
-
-  throw new GitHubError("UNKNOWN", `GitHub API error: ${res.status}`, res.status);
+// Reuse the base fetch implementation. 
+// Ensure `githubFetch` is exported from `src/lib/github.ts` and accepts (path, token, options).
+const githubWriteFetch = githubFetch;
 }
 
 // Validate token by checking user
